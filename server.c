@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include "message.h"
 
 
 void* print_message(void* arg) {
