@@ -1,6 +1,7 @@
 #ifndef QUEUES_H
 #define QUEUES_H
 
+#include <stdlib.h>
 #include "message.h"
 
 typedef struct Heap{

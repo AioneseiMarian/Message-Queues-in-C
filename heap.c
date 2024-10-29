@@ -38,5 +38,29 @@ void push(Heap* _heap, Message _msg){
     _heap->size++;
 }
 Message pop(Heap* _heap){
-    
+    if(_heap->size == 0){
+        exit(EXIT_FAILURE);
+    }
+    Message max_msg = _heap->heap[0];
+    _heap->heap[0] = _heap->heap[_heap->size - 1];
+    _heap->size--;
+    heapifyDown(_heap, 0);
+    return max_msg;
+}
+Heap* create_queue(int _capacity){
+    Heap* _heap = (Heap*)malloc(sizeof(Heap));
+    if(_heap == NULL){
+        perror("Error allocating queue");
+    }
+    _heap->heap = (Message*)malloc(_capacity * sizeof(Message));
+    if(_heap->heap == NULL){
+        perror("Error allocating queue");
+    }
+    _heap->capacity = _capacity;
+    _heap->size = 0;
+    return _heap;
+}
+void freeQueue(Heap* _heap){
+    free(_heap->heap);
+    free(_heap);
 }
