@@ -11,14 +11,17 @@ typedef enum{
 }MsgType;
 
 
-
-typedef struct message
-{
+// type(int) - priority(bool) - pubID(int) - len(int) - data(len * char)
+typedef struct{
     int len;
-    char* data;
     int publisherID;
     bool has_prioriry;
     MsgType type;
+}MessageHeader;
+
+typedef struct{
+    MessageHeader header;
+    char* data;
 }Message;
 
 #endif

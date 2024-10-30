@@ -7,7 +7,7 @@ void swap(Message* _msg1, Message* _msg2){
 }
 void heapifyUp(Heap* _heap, int _index){
     int parent = (_index - 1)/2;
-    while(_index > 0 && _heap->heap[_index].has_prioriry > _heap->heap[parent].has_prioriry){
+    while(_index > 0 && _heap->heap[_index].header.has_prioriry > _heap->heap[parent].header.has_prioriry){
         swap(&_heap->heap[_index] ,&_heap->heap[parent]);
         _index = parent;
         parent = (_index - 1)/2;
@@ -18,10 +18,10 @@ void heapifyDown(Heap* _heap, int _index){
     int right = left + 1;
     int largest = _index;
 
-    if(left < _heap->size && _heap->heap[left].has_prioriry > _heap->heap[largest].has_prioriry){
+    if(left < _heap->size && _heap->heap[left].header.has_prioriry > _heap->heap[largest].header.has_prioriry){
         largest = left;
     }
-    if(right < _heap->size && _heap->heap[right].has_prioriry > _heap->heap[largest].has_prioriry){
+    if(right < _heap->size && _heap->heap[right].header.has_prioriry > _heap->heap[largest].header.has_prioriry){
         largest = right;
     }
     if(largest != _index){
