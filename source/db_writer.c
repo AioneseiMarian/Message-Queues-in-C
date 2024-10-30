@@ -3,7 +3,7 @@
 #include<fcntl.h>
 #include<unistd.h>
 #include<string.h>
-#include"message.h"
+#include"../header/message.h"
 
 void writter(int fd, MsgType type, bool priority, int pulbID, int len, char* data){
     char* buf = (char*)malloc((sizeof(MessageHeader)+len)*sizeof(char));
@@ -29,7 +29,8 @@ int main(){
         exit(EXIT_FAILURE);
     }
     writter(fd, MSG_NOTIF, 0, 1, strlen("Hello world"), "Hello world");
-    
+    writter(fd, TERMINATE, 0, 1, strlen("stop"), "stop");
+
     close(fd);
     return 0;
 }

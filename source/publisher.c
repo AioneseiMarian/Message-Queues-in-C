@@ -8,10 +8,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include "message.h"
+#include "../header/message.h"
 
-#define IPADDR "127.0.0.1"
-#define PORT 8000
+#define SERVER_IPADDR "127.0.0.1"
+#define SERVER_PORT 8000
 #define MSGSIZ 2048
 #define MSGFILENAME "publ_db.txt"
 #define TEMPFILENAME "publ_db2.txt"
@@ -47,31 +47,11 @@ Publisher* initServer(char* _addr, int _port){
     }
     if(connect(_pub->socket_fd, (struct sockaddr*)&(_pub->server_addr), sizeof(_pub->server_addr)) < 0){
         perror("Unable to connect");
-        //exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
     printf("Connected with server successfully\n");
 
     return _pub;
-}
-
-void sendMessage(Publisher* _pub){ 
-    //placeholder function
-    char client_message[MSGSIZ], server_message[MSGSIZ];
-    memset(client_message, '\0', MSGSIZ);
-    memset(server_message, '\0', MSGSIZ);
-
-    printf("Enter message: ");
-    fgets(client_message, MSGSIZ, stdin);
- 
-    if(send(_pub->socket_fd, client_message, strlen(client_message), 0) < 0){
-        perror("Unable to send message");
-        exit(EXIT_FAILURE);
-    }
-     if(recv(_pub->socket_fd, server_message, sizeof(server_message), 0) < 0){
-        perror("Error while receiving server's msg\n");
-        exit(EXIT_FAILURE);
-    }
-    printf("Server's response: %s\n",server_message);
 }
 
 void fetchAndSend(Publisher* _pub){
@@ -80,11 +60,6 @@ void fetchAndSend(Publisher* _pub){
         exit(EXIT_FAILURE);
     }
     lseek(_pub->db_fd, 0, SEEK_SET);
-    int temp_fd = open(TEMPFILENAME, O_CREAT | O_WRONLY, 0644);
-    if(temp_fd == -1){
-        perror("Error creating temp file");
-        exit(EXIT_FAILURE);
-    }
     char buf[BUFSIZ];
     char *msg_buf = NULL;
     char header_buf[sizeof(MessageHeader)];
@@ -92,25 +67,32 @@ void fetchAndSend(Publisher* _pub){
     bool was_modified = 0;
     while((ret = read(_pub->db_fd, header_buf, sizeof(MessageHeader))) > 0){
         was_modified = 1;
-        printf("hi from while\n");
         memcpy(&(_pub->msg_header), header_buf, sizeof(MessageHeader));
         printf("type:%i\npriority:%i\npubID:%i\nlenght:%i\n",
                 _pub->msg_header.type,
                 _pub->msg_header.has_prioriry,
                 _pub->msg_header.publisherID,
                 _pub->msg_header.len);
-        msg_buf = (char*)realloc(msg_buf, (_pub->msg_header.len + 1) * sizeof(char));
+        msg_buf = (char*)realloc(msg_buf, (_pub->msg_header.len + sizeof(MessageHeader)) * sizeof(char));
         if(msg_buf == NULL){
             perror("Error allocating memory");
             exit(EXIT_FAILURE);
         }
-        read(_pub->db_fd, msg_buf, _pub->msg_header.len);
-        printf("%s\n", msg_buf);
+        read(_pub->db_fd, msg_buf + sizeof(MessageHeader), _pub->msg_header.len);
+        memcpy(msg_buf, header_buf, sizeof(MessageHeader));
+        printf("%s\n", msg_buf+sizeof(MessageHeader));
         //send to server
-        
-
+        if(send(_pub->socket_fd, msg_buf, _pub->msg_header.len + sizeof(MessageHeader), 0) < 0){
+            printf("Unable to send message to server\n");
+        }
+        free(msg_buf);
     }
     if(was_modified){
+        int temp_fd = open(TEMPFILENAME, O_CREAT | O_WRONLY, 0644);
+        if(temp_fd == -1){
+            perror("Error creating temp file");
+            exit(EXIT_FAILURE);
+        }
         while((ret = read(_pub->db_fd, buf, BUFSIZ)) > 0){
             write(temp_fd, buf, ret);
         }
@@ -131,7 +113,7 @@ void closePubClient(Publisher* _pub){
 int main(void)
 {
     setbuf(stdout, NULL);
-    Publisher* publisher_client = initServer(IPADDR, PORT);
+    Publisher* publisher_client = initServer(SERVER_IPADDR, SERVER_PORT);
  
     fetchAndSend(publisher_client);
     closePubClient(publisher_client);

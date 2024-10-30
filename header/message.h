@@ -8,6 +8,7 @@ typedef enum{
     MSG_NOTIF,
     MSG_SYS_INFO,
     MSG_TASK,
+    TERMINATE,
 }MsgType;
 
 
