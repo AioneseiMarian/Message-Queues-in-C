@@ -6,6 +6,14 @@
 #include <arpa/inet.h>
 #include "message.h"
 
+typedef struct{
+    struct sockaddr_in client_addr;
+    int client_sock;
+    int client_size
+} Client;
+
+
+
 
 void* print_message(void* arg) {
     char* message = (char*) arg;
