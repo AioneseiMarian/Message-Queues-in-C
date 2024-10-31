@@ -1,15 +1,16 @@
-all: source/publisher.c source/server.c source/db_writer.c
-	make clean
-	cc source/publisher.c -o publisher
-	cc source/server.c -o server
-	cc source/db_writer.c -o dbwriter
+all: source/publisher.c source/server.c source/dbwriter.c
+	-make clean
+	cc source/publisher.c -o _publisher
+	cc source/server.c -o _server
+	cc source/dbwriter.c -o _dbwriter
 publisher: source/publisher.c
-	cc source/publisher.c -o publisher
+	cc source/publisher.c -o _publisher
 server: source/server.c
-	cc source/server.c -o server
+	cc source/server.c -o _server
 db: source/db_writer.c
-	cc source/db_writer.c -o dbwriter
+	cc source/dbwriter.c -o _dbwriter
 clean:
-	rm publisher
-	rm server
-	rm dbwriter
+	-rm _publisher
+	-rm _server
+	-rm _dbwriter
+	-rm tmp.txt

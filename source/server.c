@@ -11,7 +11,7 @@
 #include "../header/message.h"
 
 #define SERVER_PORT 8000
-#define SERVER_IPADDR "127.0.0.1"
+#define SERVER_IPADDR "127.0.0.2"
 
 typedef struct{
     struct sockaddr_in client_addr;
@@ -24,22 +24,6 @@ typedef struct{
     struct sockaddr_in server_addr;
     //Messages heaps | Messages queues
 }Server;
-
-void* print_message(void* arg) {
-    char* message = (char*) arg;
-    printf("%s\n", message);
-    pthread_exit(NULL);
-}
-void threading(){
-    pthread_t thread;
-    char* msg = "Hello from the thread!";
-    int ret = pthread_create(&thread, NULL, print_message, (void*) msg);
-    if (ret) {
-        fprintf(stderr, "Error creating thread\n");
-        exit(EXIT_FAILURE);
-    }
-    pthread_join(thread, NULL); 
-}
 
 Server* initServer(char* _addr, int _port){
     Server* _server = (Server*)malloc(sizeof(Server));
@@ -64,12 +48,44 @@ Server* initServer(char* _addr, int _port){
     }
     return _server;
 }
-
-void listenClients(Server* _server, int _connections){
-    if(listen(_server->server_fd, _connections) < 0){
+char* getStringType(MsgType _type){
+    switch(_type){
+    case MSG_BIN_DATA:
+        return "Binary Data";
+    case MSG_NOTIF:
+        return "Notification";
+    case MSG_SYS_INFO:
+        return "System information";
+    case MSG_TASK:
+        return "Task";
+    case TERMINAL:
+        return "Termination message";
+    }
+    return NULL;
+}
+void printHeader(MessageHeader* _hdr){
+    printf("type: %s\npriority: %s\npubID: %i\nlenght: %i\n",
+                getStringType(_hdr->type),
+                _hdr->has_prioriry ? "High" : "Low",
+                _hdr->publisherID,
+                _hdr->len);
+}
+void listenClient(Server* _server, Client* _client){
+    if(listen(_server->server_fd, 1) < 0){
         perror("Error while listening");
         exit(EXIT_FAILURE);
     }
+    printf("Listening client . . . \n");
+    _client->client_size = sizeof(_client->client_addr);
+    _client->client_fd = accept(_server->server_fd, (struct sockaddr*)&(_client->client_addr), &(_client->client_size));
+    if(_client->client_fd < 0){
+        perror("Can't accept publisher");
+        exit(EXIT_FAILURE);
+    }
+    printf("Publisher connected at IP: %s and port: %i\n",
+            inet_ntoa(_client->client_addr.sin_addr),
+            ntohs(_client->client_addr.sin_port));
+
 }
 
 void fetchMessages(Server* _server){
@@ -78,17 +94,7 @@ void fetchMessages(Server* _server){
         perror("Error allocating memory");
         exit(EXIT_FAILURE);
     }
-    
-    listenClients(_server, 1);
-    printf("Listening publisher . . . \n");
-    publisher->client_size = sizeof(publisher->client_addr);
-    publisher->client_fd = accept(_server->server_fd, (struct sockaddr*)&(publisher->client_addr), &(publisher->client_size));
-    if(publisher->client_fd < 0){
-        perror("Can't accept publisher");
-        exit(EXIT_FAILURE);
-    }
-    printf("Publisher connected at IP: %s and port: %i\n", inet_ntoa(publisher->client_addr.sin_addr), ntohs(publisher->client_addr.sin_port));
-
+    listenClient(_server, publisher);
     int ret;
     Message* msg = (Message*)malloc(sizeof(Message));
     char header_buf[sizeof(MessageHeader)];
@@ -97,11 +103,7 @@ void fetchMessages(Server* _server){
             printf("Error receiving message from publisher"); 
         }
         memcpy(&(msg->header), header_buf, sizeof(MessageHeader));
-        // printf("type:%i\npriority:%i\npubID:%i\nlenght:%i\n",
-        //         msg->header.type,
-        //         msg->header.has_prioriry,
-        //         msg->header.publisherID,
-        //         msg->header.len);
+        printHeader(&msg->header);
         msg->data = (char*)malloc(sizeof(char) * msg->header.len);
         if(msg == NULL){
             perror("Error allocating memory");
@@ -119,7 +121,7 @@ void fetchMessages(Server* _server){
         int tmpfd = open("tmp.txt", O_CREAT | O_WRONLY | O_APPEND, 0664);
         write(tmpfd, msg->data, msg->header.len);
         printf("%s\n", msg->data);
-    }while(msg->header.type != TERMINATE);
+    }while(msg->header.type != TERMINAL);
     
     close(publisher->client_fd);
     free(publisher);
