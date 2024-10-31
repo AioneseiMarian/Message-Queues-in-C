@@ -87,7 +87,7 @@ void sendTerminalMessage(Publisher* _pub){
         printf("Unable to send message to server\n");
     }
 }
-void fetchAndSend(Publisher* _pub){
+void fetchAndPublish(Publisher* _pub){
     if(lseek(_pub->db_fd, 0, SEEK_END) == 0){
         perror("Empty database");
         exit(EXIT_FAILURE);
@@ -145,7 +145,7 @@ int main(void)
     setbuf(stdout, NULL);
     Publisher* publisher_client = initServer(SERVER_IPADDR, SERVER_PORT);
  
-    fetchAndSend(publisher_client);
+    fetchAndPublish(publisher_client);
     closePubClient(publisher_client);
     
     return 0;
