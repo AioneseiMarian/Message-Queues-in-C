@@ -16,6 +16,22 @@
 #define MSGFILENAME "database/publ_db.txt"
 #define TEMPFILENAME "database/publ_db2.txt"
 
+char* getStringType(MsgType _type){ 
+    switch(_type){
+    case MSG_BIN_DATA:
+        return "Binary Data";
+    case MSG_NOTIF:
+        return "Notification";
+    case MSG_SYS_INFO:
+        return "System information";
+    case MSG_TASK:
+        return "Task";
+    case MSG_TERMINAL:
+        return "Termination message";
+    }
+    return NULL;
+}
+
 typedef struct Publisher{
     int socket_fd;
     struct sockaddr_in server_addr;
@@ -52,21 +68,7 @@ Publisher* initServer(char* _addr, int _port){
 
     return _pub;
 }
-char* getStringType(MsgType _type){
-    switch(_type){
-    case MSG_BIN_DATA:
-        return "Binary Data";
-    case MSG_NOTIF:
-        return "Notification";
-    case MSG_SYS_INFO:
-        return "System information";
-    case MSG_TASK:
-        return "Task";
-    case TERMINAL:
-        return "Termination message";
-    }
-    return NULL;
-}
+
 void printHeader(MessageHeader* _hdr){
     printf("type: %s\npriority: %s\npubID: %i\nlenght: %i\n",
                 getStringType(_hdr->type),
@@ -79,7 +81,7 @@ void sendTerminalMessage(Publisher* _pub){
         .has_prioriry = 0,
         .len = 0,
         .publisherID = 0,
-        .type = TERMINAL,
+        .type = MSG_TERMINAL,
     };
     char buf[sizeof(MessageHeader)];
     memcpy(buf, &tmp, sizeof(MessageHeader));

@@ -20,10 +20,25 @@ typedef struct{
 
 Client* client;
 
+char* getStringType(MsgType _type){
+    switch(_type){
+    case MSG_BIN_DATA:
+        return "Binary Data";
+    case MSG_NOTIF:
+        return "Notification";
+    case MSG_SYS_INFO:
+        return "System information";
+    case MSG_TASK:
+        return "Task";
+    case MSG_TERMINAL:
+        return "Termination message";
+    }
+    return NULL;
+}
+
+
 int init_client(){
     client = malloc(sizeof(Client));
- 
-
  
     client->server_fd = socket(AF_INET, SOCK_STREAM, 0);
  

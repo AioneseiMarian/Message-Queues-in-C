@@ -1,11 +1,8 @@
 #include "../header/queues.h"
 
-<<<<<<< HEAD
 
-void swap(Message* _msg1, Message* _msg2){
-=======
+
 void swapMsgs(Message* _msg1, Message* _msg2){
->>>>>>> 81e2ad4a88e510a39d8fc563ba942c3b7e217c6b
     Message tmp = *_msg1;
     *_msg1 = *_msg2;
     *_msg2 = tmp;
@@ -36,26 +33,13 @@ void heapifyDown(Heap* _heap, int _index){
 }
 void pushHeap(Heap* _heap, Message _msg){
     if(_heap->size == _heap->capacity){
-<<<<<<< HEAD
-        _heap->capacity = 2 *_heap->capacity;
-        _heap->heap = realloc(_heap->heap, _heap->capacity * sizeof(Message));
-        if(_heap->heap == NULL){
-            perror("Eroare realocare heap:");
-            exit(-1);
-        } 
-=======
         resizeHeap(_heap);
->>>>>>> 81e2ad4a88e510a39d8fc563ba942c3b7e217c6b
     }
     _heap->heap[_heap->size] = _msg;
     heapifyUp(_heap, _heap->size);
     _heap->size++;
 }
-<<<<<<< HEAD
-Message popHead(Heap* _heap){
-=======
 Message popHeap(Heap* _heap){
->>>>>>> 81e2ad4a88e510a39d8fc563ba942c3b7e217c6b
     if(_heap->size == 0){
         fprintf(stderr, "Empty queue");
         exit(EXIT_FAILURE);

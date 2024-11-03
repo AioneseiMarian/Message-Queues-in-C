@@ -6,7 +6,6 @@
 #define PUBLISHER_PORT 8000
 #define SERVER_IPADDR "127.0.0.2"
 #define SUBSCRIBER_PORT 8010
-#define INITIALPUBQUEUECAP 4
 
 typedef enum MsgType{
     MSG_BIN_DATA = 0,

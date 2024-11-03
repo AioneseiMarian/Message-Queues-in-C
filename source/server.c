@@ -10,6 +10,8 @@
 #include <arpa/inet.h>
 #include "../header/queues.h"
 
+#define INITIALPUBQUEUECAP 4
+
 
 typedef struct{
     struct sockaddr_in client_addr;
@@ -22,19 +24,34 @@ typedef struct{
     struct sockaddr_in server_addr;
     //Messages heaps | Messages queues
     Heap **publisher_queues;
+    RequestQueue  **req_queues;
 }Server;
 
 Heap** initPublisherQueues(){
-    Heap** _queues = (Heap**)malloc(sizeof(Heap*) * TERMINAL);
+    Heap** _queues = (Heap**)malloc(sizeof(Heap*) * MSG_TERMINAL);
     if(_queues == NULL){
         perror("Error allocating memory");
         exit(EXIT_FAILURE);
     }
-    for(int i = 0; i < TERMINAL ; ++i){
+    for(int i = 0; i < MSG_TERMINAL ; ++i){
         _queues[i] = createQueue(INITIALPUBQUEUECAP);
     }
     return _queues;
 }
+
+RequestQueue** initRequestQueues(){
+    RequestQueue** req_queue = (RequestQueue**) malloc(sizeof(RequestQueue*) * MSG_TERMINAL);
+    if(req_queue == NULL){
+        perror("Error allocating memory");
+        exit(-1);
+    }
+    for(int i = 0; i < MSG_TERMINAL; i++){
+        req_queue[i] = createReqQueue();
+    }
+    return req_queue;
+}
+
+
 Server* initServer(char* _addr, int _port){
     Server* _server = (Server*)malloc(sizeof(Server));
     if(_server == NULL){
@@ -53,6 +70,7 @@ Server* initServer(char* _addr, int _port){
     _server->server_addr.sin_addr.s_addr = inet_addr(_addr);
 
     _server->publisher_queues = initPublisherQueues();
+    _server->req_queues = initRequestQueues();
 
     if(bind(_server->server_fd, (struct sockaddr*)&(_server->server_addr), sizeof(_server->server_addr)) < 0){
         perror("Error on binding");
@@ -70,7 +88,7 @@ char* getStringType(MsgType _type){
         return "System information";
     case MSG_TASK:
         return "Task";
-    case TERMINAL:
+    case MSG_TERMINAL:
         return "Termination message";
     }
     return NULL;
@@ -136,10 +154,10 @@ void fetchPublications(Server* _server){
         }
         readMessage(publisher, msg);
         //printMessage(msg);
-        if(msg->header.type != TERMINAL){
+        if(msg->header.type != MSG_TERMINAL){
             pushHeap(_server->publisher_queues[msg->header.type], *msg);
         }
-    }while(msg->header.type != TERMINAL);
+    }while(msg->header.type != MSG_TERMINAL);
     close(publisher->client_fd);
     free(publisher);
 }
@@ -165,3 +183,4 @@ int main() {
     closeServer(server);
     return 0;
 }
+
