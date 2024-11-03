@@ -1,5 +1,6 @@
 #include "../header/queues.h"
 
+
 void swap(Message* _msg1, Message* _msg2){
     Message tmp = *_msg1;
     *_msg1 = *_msg2;
@@ -31,13 +32,18 @@ void heapifyDown(Heap* _heap, int _index){
 }
 void push(Heap* _heap, Message _msg){
     if(_heap->size == _heap->capacity){
-        return;
+        _heap->capacity = 2 *_heap->capacity;
+        _heap->heap = realloc(_heap->heap, _heap->capacity * sizeof(Message));
+        if(_heap->heap == NULL){
+            perror("Eroare realocare heap:");
+            exit(-1);
+        } 
     }
     _heap->heap[_heap->size] = _msg;
     heapifyUp(_heap, _heap->size);
     _heap->size++;
 }
-Message pop(Heap* _heap){
+Message popHead(Heap* _heap){
     if(_heap->size == 0){
         exit(EXIT_FAILURE);
     }
@@ -51,10 +57,12 @@ Heap* create_queue(int _capacity){
     Heap* _heap = (Heap*)malloc(sizeof(Heap));
     if(_heap == NULL){
         perror("Error allocating queue");
+        exit(-1);
     }
     _heap->heap = (Message*)malloc(_capacity * sizeof(Message));
     if(_heap->heap == NULL){
         perror("Error allocating queue");
+        exit(-1);
     }
     _heap->capacity = _capacity;
     _heap->size = 0;
