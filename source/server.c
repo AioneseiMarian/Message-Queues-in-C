@@ -9,9 +9,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include "../header/message.h"
+#include "../header/queues.h"
 
-#define SERVER_PORT 8000
-#define SERVER_IPADDR "127.0.0.2"
+
 
 typedef struct{
     struct sockaddr_in client_addr;
@@ -64,7 +64,7 @@ char* getStringType(MsgType _type){
     return NULL;
 }
 void printHeader(MessageHeader* _hdr){
-    printf("type: %s\npriority: %s\npubID: %i\nlenght: %i\n",
+    printf("type: %s\npriority: %s\npubID: %i\nlength: %i\n",           //it's spelled length
                 getStringType(_hdr->type),
                 _hdr->has_prioriry ? "High" : "Low",
                 _hdr->publisherID,
@@ -132,11 +132,16 @@ void closeServer(Server* _server){
     free(_server);
 }
 
+
+
 int main() {
     setbuf(stdout, NULL);
-    Server* server = initServer(SERVER_IPADDR, SERVER_PORT); 
-    fetchMessages(server);
-    closeServer(server);
+    Server* server_pub = initServer(SERVER_IPADDR, PUBLISHER_PORT); 
+    fetchMessages(server_pub);
+    closeServer(server_pub);
+
+    Server* server_sub = initServer(SERVER_IPADDR, SUBSCRIBER_PORT);
+    
 
     return 0;
 }
