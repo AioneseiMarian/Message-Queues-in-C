@@ -6,13 +6,15 @@
 #define PUBLISHER_PORT 8000
 #define SERVER_IPADDR "127.0.0.2"
 #define SUBSCRIBER_PORT 8010
+#define INITIALPUBQUEUECAP 4
 
-typedef enum{
+typedef enum MsgType{
     MSG_BIN_DATA = 0,
     MSG_NOTIF,
     MSG_SYS_INFO,
     MSG_TASK,
-    TERMINAL,
+    MSG_TERMINAL,
+    MSG_LENGTH      // to know how many types we have
 }MsgType;
 
 
@@ -28,5 +30,12 @@ typedef struct{
     MessageHeader header;
     char* data;
 }Message;
+
+
+
+typedef struct{
+    int subscribedID;
+    MsgType type;
+}Request;
 
 #endif
