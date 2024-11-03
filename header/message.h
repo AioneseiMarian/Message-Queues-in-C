@@ -13,8 +13,7 @@ typedef enum MsgType{
     MSG_NOTIF,
     MSG_SYS_INFO,
     MSG_TASK,
-    MSG_TERMINAL,
-    MSG_LENGTH      // to know how many types we have
+    MSG_TERMINAL
 }MsgType;
 
 
