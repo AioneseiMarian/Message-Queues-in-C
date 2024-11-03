@@ -10,9 +10,6 @@
 #include <arpa/inet.h>
 #include "../header/queues.h"
 
-#define PUBLISHER_PORT 8000
-#define SERVER_IPADDR "127.0.0.2"
-#define INITIALPUBQUEUECAP 4
 
 typedef struct{
     struct sockaddr_in client_addr;
@@ -162,6 +159,8 @@ int main() {
     
     testMessageQueues(server);
     testMessageQueues(server);
+
+    Server* server_sub = initServer(SERVER_IPADDR, SUBSCRIBER_PORT);
 
     closeServer(server);
     return 0;
