@@ -16,9 +16,14 @@ typedef struct Heap{
 
 
 //Subscriber
-typedef struct RequestQueue{
-    struct RequestQueue* next_node;
+typedef struct RequestNode{
+    struct RequestNode* next_node;
     Request* request;
+}RequestNode;
+
+typedef struct RequestQueue{
+    struct RequestNode* head_node;
+    char chanell_type[40];
 }RequestQueue;
 
 

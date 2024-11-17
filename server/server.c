@@ -8,6 +8,11 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/epoll.h>
+#include <errno.h>
+
+#define MAX_EVENTS 64
 
 #include "../header/queues.h"
 
@@ -26,6 +31,21 @@ typedef struct {
     Heap** publisher_queues;
     RequestQueue** req_queues;
 } Server;
+
+
+
+void setNonBlocking(int fd) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1) {
+        perror("Error getting socket flags");
+        exit(EXIT_FAILURE);
+    }
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        perror("Error setting socket to non-blocking");
+        exit(EXIT_FAILURE);
+    }
+}
+
 
 Heap** initPublisherQueues() {
     Heap** _queues = (Heap**)malloc(sizeof(Heap*) * MSG_TERMINAL);
@@ -53,12 +73,7 @@ RequestQueue** initRequestQueues() {
     return req_queue;
 }
 
-<<<<<<< HEAD:source/server.c
-
-Server* initServer(char* _addr, int _port_pub, int _port_sub){
-=======
 Server* initServer(char* _addr, int _port) {
->>>>>>> 7650adcd5ab1366b28bb0ea24e5414b4851c791f:server/server.c
     Server* _server = (Server*)malloc(sizeof(Server));
     if (_server == NULL) {
         perror("Error allocating memory");
@@ -72,7 +87,7 @@ Server* initServer(char* _addr, int _port) {
     printf("Socket created succesfully\n");
 
     _server->server_addr.sin_family = AF_INET;
-    _server->server_addr.sin_port = htons(_port_pub);
+    _server->server_addr.sin_port = htons(_port);
     _server->server_addr.sin_addr.s_addr = inet_addr(_addr);
 
     _server->publisher_queues = initPublisherQueues();
@@ -179,21 +194,89 @@ void closeServer(Server* _server) {
     free(_server->publisher_queues);
     free(_server);
 }
+
+
+void startEpollServer(Server* _server) {
+    int epoll_fd = epoll_create1(0);
+    if (epoll_fd == -1) {
+        perror("Error creating epoll instance");
+        exit(EXIT_FAILURE);
+    }
+
+    struct epoll_event ev, events[MAX_EVENTS];
+    ev.events = EPOLLIN | EPOLLET;  // Setăm Edge Triggered.
+    ev.data.fd = _server->server_fd;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, _server->server_fd, &ev) == -1) {
+        perror("Error adding server socket to epoll");
+        exit(EXIT_FAILURE);
+    }
+
+    setNonBlocking(_server->server_fd); // Socket server în modul non-blocking.
+
+    while (1) {
+        int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+        if (nfds == -1) {
+            perror("Error during epoll_wait");
+            exit(EXIT_FAILURE);
+        }
+
+        for (int i = 0; i < nfds; i++) {
+            if (events[i].data.fd == _server->server_fd) {
+                // Acceptăm conexiuni noi.
+                while (1) {
+                    Client* _client = (Client*)malloc(sizeof(Client));
+                    if (!_client) {
+                        perror("Error allocating client memory");
+                        continue;
+                    }
+
+                    _client->client_size = sizeof(_client->client_addr);
+                    _client->client_fd =
+                        accept(_server->server_fd, (struct sockaddr*)&_client->client_addr,
+                               &_client->client_size);
+                    if (_client->client_fd < 0) {
+                        free(_client);
+                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                            // Toate conexiunile au fost acceptate.
+                            break;
+                        } else {
+                            perror("Can't accept connection");
+                        }
+                        continue;
+                    }
+
+                    printf("New client connected\n");
+                    setNonBlocking(_client->client_fd); // Socket client în modul non-blocking.
+
+                    ev.events = EPOLLIN | EPOLLET;  // Edge Triggered pentru client.
+                    ev.data.fd = _client->client_fd;
+
+                    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, _client->client_fd, &ev) == -1) {
+                        perror("Error adding client socket to epoll");
+                        close(_client->client_fd);
+                        free(_client);
+                        continue;
+                    }
+                }
+            } else {
+                // Gestionăm citirea de la un client existent.
+                handleClientRead(events[i].data.fd);
+            }
+        }
+    }
+}
+
+
+
 int main() {
     setbuf(stdout, NULL);
-<<<<<<< HEAD:source/server.c
-    Server* server = initServer(SERVER_IPADDR, PUBLISHER_PORT, SUBSCRIBER_PORT); 
-=======
     Server* server = initServer(SERVER_IPADDR, PUBLISHER_PORT);
->>>>>>> 7650adcd5ab1366b28bb0ea24e5414b4851c791f:server/server.c
     fetchPublications(server);
 
-<<<<<<< HEAD:source/server.c
-=======
     testMessageQueues(server);
     testMessageQueues(server);
 
->>>>>>> 7650adcd5ab1366b28bb0ea24e5414b4851c791f:server/server.c
     closeServer(server);
     return 0;
 }

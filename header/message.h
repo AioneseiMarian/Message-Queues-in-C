@@ -30,10 +30,9 @@ typedef struct{
 }Message;
 
 
-
 typedef struct{
     int subscribedID;
-    MsgType type;
+    char type[20];
 }Request;
 
 #endif
