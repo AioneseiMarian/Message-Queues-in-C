@@ -52,7 +52,7 @@ RequestQueue** initRequestQueues(){
 }
 
 
-Server* initServer(char* _addr, int _port){
+Server* initServer(char* _addr, int _port_pub, int _port_sub){
     Server* _server = (Server*)malloc(sizeof(Server));
     if(_server == NULL){
         perror("Error allocating memory");
@@ -66,7 +66,7 @@ Server* initServer(char* _addr, int _port){
     printf("Socket created succesfully\n");
 
     _server->server_addr.sin_family = AF_INET;
-    _server->server_addr.sin_port = htons(_port);
+    _server->server_addr.sin_port = htons(_port_pub);
     _server->server_addr.sin_addr.s_addr = inet_addr(_addr);
 
     _server->publisher_queues = initPublisherQueues();
@@ -172,13 +172,11 @@ void closeServer(Server* _server){
 }
 int main() {
     setbuf(stdout, NULL);
-    Server* server = initServer(SERVER_IPADDR, PUBLISHER_PORT); 
+    Server* server = initServer(SERVER_IPADDR, PUBLISHER_PORT, SUBSCRIBER_PORT); 
     fetchPublications(server);
     
     testMessageQueues(server);
     testMessageQueues(server);
-
-    Server* server_sub = initServer(SERVER_IPADDR, SUBSCRIBER_PORT);
 
     closeServer(server);
     return 0;
