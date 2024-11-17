@@ -28,9 +28,9 @@ typedef struct RequestQueue{
 
 
 RequestQueue* createReqQueue();
-void pushRequest(RequestQueue* _req_queue, Request* _request);
+void pushRequest(RequestQueue** _req_queue, Request* _request, char* channel);
 Request* popRequest(RequestQueue* _req_queue);
-void freeReqQueue(RequestQueue* _req_queue);
+void freeReqQueue(RequestQueue** _req_queue);
 //endSubscriber
 
 void swapMsgs(Message* _msg1, Message* _msg2);
