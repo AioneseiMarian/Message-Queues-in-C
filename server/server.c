@@ -1,65 +1,71 @@
 #define _GNU_SOURCE
 
+#include <arpa/inet.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>
+#include <unistd.h>
+
 #include "../header/queues.h"
 
 #define INITIALPUBQUEUECAP 4
 
-
-typedef struct{
+typedef struct {
     struct sockaddr_in client_addr;
     int client_fd;
     int client_size;
-}Client;
+} Client;
 
-typedef struct{
+typedef struct {
     int server_fd;
     struct sockaddr_in server_addr;
-    //Messages heaps | Messages queues
-    Heap **publisher_queues;
-    RequestQueue  **req_queues;
-}Server;
+    // Messages heaps | Messages queues
+    Heap** publisher_queues;
+    RequestQueue** req_queues;
+} Server;
 
-Heap** initPublisherQueues(){
+Heap** initPublisherQueues() {
     Heap** _queues = (Heap**)malloc(sizeof(Heap*) * MSG_TERMINAL);
-    if(_queues == NULL){
+    if (_queues == NULL) {
         perror("Error allocating memory");
         exit(EXIT_FAILURE);
     }
-    for(int i = 0; i < MSG_TERMINAL ; ++i){
+    for (int i = 0; i < MSG_TERMINAL; ++i) {
         _queues[i] = createQueue(INITIALPUBQUEUECAP);
     }
     return _queues;
 }
 
-RequestQueue** initRequestQueues(){
-    RequestQueue** req_queue = (RequestQueue**) malloc(sizeof(RequestQueue*) * MSG_TERMINAL);
-    if(req_queue == NULL){
+RequestQueue** initRequestQueues() {
+    RequestQueue** req_queue =
+        (RequestQueue**)malloc(sizeof(RequestQueue*) * MSG_TERMINAL);
+    if (req_queue == NULL) {
         perror("Error allocating memory");
         exit(-1);
     }
-    for(int i = 0; i < MSG_TERMINAL; i++){
+    for (int i = 0; i < MSG_TERMINAL; i++) {
         req_queue[i] = createReqQueue();
     }
+
     return req_queue;
 }
 
+<<<<<<< HEAD:source/server.c
 
 Server* initServer(char* _addr, int _port_pub, int _port_sub){
+=======
+Server* initServer(char* _addr, int _port) {
+>>>>>>> 7650adcd5ab1366b28bb0ea24e5414b4851c791f:server/server.c
     Server* _server = (Server*)malloc(sizeof(Server));
-    if(_server == NULL){
+    if (_server == NULL) {
         perror("Error allocating memory");
         exit(EXIT_FAILURE);
     }
     _server->server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if(_server->server_fd < 0){ 
+    if (_server->server_fd < 0) {
         perror("Error creating socket");
         exit(EXIT_FAILURE);
     }
@@ -72,69 +78,71 @@ Server* initServer(char* _addr, int _port_pub, int _port_sub){
     _server->publisher_queues = initPublisherQueues();
     _server->req_queues = initRequestQueues();
 
-    if(bind(_server->server_fd, (struct sockaddr*)&(_server->server_addr), sizeof(_server->server_addr)) < 0){
+    if (bind(_server->server_fd, (struct sockaddr*)&(_server->server_addr),
+             sizeof(_server->server_addr)) < 0) {
         perror("Error on binding");
         exit(EXIT_FAILURE);
     }
     return _server;
 }
-char* getStringType(MsgType _type){
-    switch(_type){
-    case MSG_BIN_DATA:
-        return "Binary Data";
-    case MSG_NOTIF:
-        return "Notification";
-    case MSG_SYS_INFO:
-        return "System information";
-    case MSG_TASK:
-        return "Task";
-    case MSG_TERMINAL:
-        return "Termination message";
+char* getStringType(MsgType _type) {
+    switch (_type) {
+        case MSG_BIN_DATA:
+            return "Binary Data";
+        case MSG_NOTIF:
+            return "Notification";
+        case MSG_SYS_INFO:
+            return "System information";
+        case MSG_TASK:
+            return "Task";
+        case MSG_TERMINAL:
+            return "Termination message";
     }
     return NULL;
 }
-void printHeader(MessageHeader* _hdr){
+void printHeader(MessageHeader* _hdr) {
     printf("type: %s\npriority: %s\npubID: %i\nlenght: %i\n",
-                getStringType(_hdr->type),
-                _hdr->has_prioriry ? "High" : "Low",
-                _hdr->publisherID,
-                _hdr->len);
+           getStringType(_hdr->type), _hdr->has_prioriry ? "High" : "Low",
+           _hdr->publisherID, _hdr->len);
 }
-void printMessage(Message* _msg){
+void printMessage(Message* _msg) {
     printHeader(&_msg->header);
     write(STDOUT_FILENO, _msg->data, _msg->header.len);
     printf("\n");
 }
-void listenClient(Server* _server, Client* _client){
-    if(listen(_server->server_fd, 1) < 0){
+void listenClient(Server* _server, Client* _client) {
+    if (listen(_server->server_fd, 1) < 0) {
         perror("Error while listening");
         exit(EXIT_FAILURE);
     }
     printf("Listening client . . . \n");
     _client->client_size = sizeof(_client->client_addr);
-    _client->client_fd = accept(_server->server_fd, (struct sockaddr*)&(_client->client_addr), &(_client->client_size));
-    if(_client->client_fd < 0){
+    _client->client_fd =
+        accept(_server->server_fd, (struct sockaddr*)&(_client->client_addr),
+               &(_client->client_size));
+    if (_client->client_fd < 0) {
         perror("Can't accept publisher");
         exit(EXIT_FAILURE);
     }
     printf("Publisher connected at IP: %s and port: %i\n",
-            inet_ntoa(_client->client_addr.sin_addr),
-            ntohs(_client->client_addr.sin_port));
+           inet_ntoa(_client->client_addr.sin_addr),
+           ntohs(_client->client_addr.sin_port));
 }
-void readMessage(Client* _publisher, Message* _msg){
+void readMessage(Client* _publisher, Message* _msg) {
     int totalRecv = 0;
-        int bytesRead;
-        while(totalRecv < _msg->header.len){
-            bytesRead = recv(_publisher->client_fd, _msg->data + totalRecv, _msg->header.len - bytesRead, 0);
-            if(bytesRead < 0){
-                perror("Error receiving");
-            }
-            totalRecv += bytesRead;
-        }   
+    int bytesRead;
+    while (totalRecv < _msg->header.len) {
+        bytesRead = recv(_publisher->client_fd, _msg->data + totalRecv,
+                         _msg->header.len - bytesRead, 0);
+        if (bytesRead < 0) {
+            perror("Error receiving");
+        }
+        totalRecv += bytesRead;
+    }
 }
-void fetchPublications(Server* _server){
+void fetchPublications(Server* _server) {
     Client* publisher = (Client*)malloc(sizeof(Client));
-    if(publisher == NULL){
+    if (publisher == NULL) {
         perror("Error allocating publisher memory");
         exit(EXIT_FAILURE);
     }
@@ -142,43 +150,50 @@ void fetchPublications(Server* _server){
     int ret;
     Message* msg = (Message*)malloc(sizeof(Message));
     char header_buf[sizeof(MessageHeader)];
-    do{
-        if((ret = recv(publisher->client_fd, header_buf, sizeof(MessageHeader), 0)) < 0){
-            printf("Error receiving message from publisher"); 
+    do {
+        if ((ret = recv(publisher->client_fd, header_buf, sizeof(MessageHeader),
+                        0)) < 0) {
+            printf("Error receiving message from publisher");
         }
         memcpy(&(msg->header), header_buf, sizeof(MessageHeader));
         msg->data = (char*)malloc(sizeof(char) * msg->header.len);
-        if(msg == NULL){
+        if (msg == NULL) {
             perror("Error allocating memory");
             exit(EXIT_FAILURE);
         }
         readMessage(publisher, msg);
-        //printMessage(msg);
-        if(msg->header.type != MSG_TERMINAL){
+        // printMessage(msg);
+        if (msg->header.type != MSG_TERMINAL) {
             pushHeap(_server->publisher_queues[msg->header.type], *msg);
         }
-    }while(msg->header.type != MSG_TERMINAL);
+    } while (msg->header.type != MSG_TERMINAL);
     close(publisher->client_fd);
     free(publisher);
 }
-void testMessageQueues(Server* _server){
+void testMessageQueues(Server* _server) {
     Message msg = popHeap(_server->publisher_queues[MSG_NOTIF]);
     printMessage(&msg);
 }
-void closeServer(Server* _server){
+void closeServer(Server* _server) {
     close(_server->server_fd);
     free(_server->publisher_queues);
     free(_server);
 }
 int main() {
     setbuf(stdout, NULL);
+<<<<<<< HEAD:source/server.c
     Server* server = initServer(SERVER_IPADDR, PUBLISHER_PORT, SUBSCRIBER_PORT); 
+=======
+    Server* server = initServer(SERVER_IPADDR, PUBLISHER_PORT);
+>>>>>>> 7650adcd5ab1366b28bb0ea24e5414b4851c791f:server/server.c
     fetchPublications(server);
-    
+
+<<<<<<< HEAD:source/server.c
+=======
     testMessageQueues(server);
     testMessageQueues(server);
 
+>>>>>>> 7650adcd5ab1366b28bb0ea24e5414b4851c791f:server/server.c
     closeServer(server);
     return 0;
 }
-

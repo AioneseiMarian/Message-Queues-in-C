@@ -1,16 +1,21 @@
-all: source/publisher.c source/server.c source/dbwriter.c
+LDFLAGS = -ljson-c
+.PHONY: all publisher server db clean cleantests
+
+all:: client/publisher.c server/server.c client/dbwriter.c
 	make clean
 	make server
 	make publisher
 	make db
-publisher: source/publisher.c
-	cc source/publisher.c -o _publisher
-server: source/server.c
-	cc source/server.c source/heap.c -o _server
-db: source/dbwriter.c
-	cc source/dbwriter.c -o _dbwriter
+publisher: client/publisher.c
+	cc client/publisher.c -o _publisher $(LDFLAGS)
+server: server/server.c
+	cc server/server.c server/heap.c server/queue.c -o _server $(LDFLAGS)
+db: client/dbwriter.c
+	cc client/dbwriter.c -o _dbwriter $(LDFLAGS)
 clean:
 	-rm _publisher
 	-rm _server
 	-rm _dbwriter
 	-rm tmp.txt
+cleantests:
+	-rm test*
