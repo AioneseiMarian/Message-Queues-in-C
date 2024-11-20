@@ -299,7 +299,7 @@ void startEpollServer(Server* _server) {
 
 int main() {
     setbuf(stdout, NULL);
-    Server* server = initServer(SERVER_IPADDR, PUBLISHER_PORT);
+    Server* server = initServer(SERVER_IPADDR, SERVER_PORT);
     startEpollServer(server);
 
     // fetchPublications(server);
