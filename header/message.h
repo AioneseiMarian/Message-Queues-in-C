@@ -8,20 +8,13 @@
 #define SUBSCRIBER_PORT 8010
 
 typedef enum MsgType{
-    MSG_BIN_DATA = 0,
-    MSG_NOTIF,
-    MSG_SYS_INFO,
-    MSG_TASK,
-    MSG_TERMINAL
 }MsgType;
 
 
-// type(int) - priority(bool) - pubID(int) - len(int) - data(len * char)
 typedef struct{
     int len;
-    int publisherID;
-    bool has_prioriry;
     MsgType type;
+	int priority;
 }MessageHeader;
 
 typedef struct{

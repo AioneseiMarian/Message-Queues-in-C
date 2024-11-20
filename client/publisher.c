@@ -40,6 +40,7 @@ typedef struct Publisher {
     MessageHeader msg_header;
     int db_fd;
 } Publisher;
+
 Publisher *initServer(char *_addr, int _port) {
     Publisher *_pub = (Publisher *)malloc(sizeof(Publisher));
     if (_pub == NULL) {
