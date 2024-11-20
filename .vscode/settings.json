@@ -5,6 +5,7 @@
         "queues.h": "c",
         "message.h": "c",
         "vector": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "json.h": "c"
     }
 }
