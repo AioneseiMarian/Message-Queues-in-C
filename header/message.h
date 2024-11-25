@@ -6,6 +6,8 @@
 #define CHANNELSIZ 40
 #define TOPICSIZ 40
 
+#include <json-c/json.h>
+
 typedef enum MsgType{
 	MSG_SUBSCRIPTION,
 	MSG_PUBLISHING,
@@ -29,5 +31,8 @@ typedef struct{
     int subscribedID;
     char type[20];
 }Request;
+
+json_object* create_Json_From_Message(MsgType type, char* topic, char* topic_subtype, int len, char* data);
+Message* create_Message_From_Json(json_object *j_obj);
 
 #endif

@@ -7,11 +7,11 @@ all:: client/publisher.c server/server.c client/dbwriter.c
 	make publisher
 	make db
 publisher: client/publisher.c
-	cc client/publisher.c -o _publisher $(LDFLAGS)
+	cc -Wall -g client/publisher.c server/queue.c server/json_utils.c server/rbtree.c -o publisher $(LDFLAGS)
 server: server/server.c
-	cc server/server.c server/heap.c server/queue.c -o _server $(LDFLAGS)
+	cc server/server.c server/heap.c server/queue.c -o server $(LDFLAGS)
 db: client/dbwriter.c
-	cc client/dbwriter.c -o _dbwriter $(LDFLAGS)
+	cc client/dbwriter.c -o dbwriter $(LDFLAGS)
 clean:
 	-rm _publisher
 	-rm _server
