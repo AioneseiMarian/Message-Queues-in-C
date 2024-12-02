@@ -16,10 +16,10 @@ void push_Queue(Queue_Node** head, void* data) {
         return;
     }
     Queue_Node* node = create_Queue_Node();
-	if (!node){
-		return;
-	}
-	node->data=data;
+    if (!node) {
+        return;
+    }
+    node->data = data;
     if (*head == NULL) {
         *head = node;
     } else {
@@ -53,4 +53,13 @@ void free_Queue(Queue_Node** head) {
         current = next_node;
     }
     *head = NULL;
+}
+int get_Queue_Size(Queue_Node* head) {
+    int size = 0;
+    Queue_Node* current = head;
+    while (current != NULL) {
+        size++;
+        current = current->next_node;
+    }
+    return size;
 }

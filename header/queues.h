@@ -13,5 +13,6 @@ Queue_Node* create_Queue_Node();
 void push_Queue(Queue_Node** head, void* data);
 void* pop_Queue(Queue_Node** head);
 void free_Queue(Queue_Node** head);
+int get_Queue_Size(Queue_Node* head);
 
 #endif

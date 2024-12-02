@@ -2,49 +2,49 @@
   {
     "type":1,
     "topic":"Programming",
-    "message_type":"program output",
+    "subtopic":"program output",
     "length":11,
     "data":"Hello world"
   },
   {
     "type":1,
     "topic":"Programming",
-    "message_type":"programming language",
+    "subtopic":"programming language",
     "length":49,
     "data":"The C programming language is a multi-purpose ..."
   },
   {
     "type":1,
     "topic":"File operations",
-    "message_type":"file creation",
+    "subtopic":"file creation",
     "length":15,
     "data":"create fis1.txt"
   },
   {
     "type":1,
     "topic":"File operations",
-    "message_type":"file creation",
+    "subtopic":"file creation",
     "length":15,
     "data":"create fis2.txt"
   },
   {
     "type":1,
     "topic":"File operations",
-    "message_type":"file deletion",
+    "subtopic":"file deletion",
     "length":15,
     "data":"remove fis1.txt"
   },
   {
     "type":1,
     "topic":"Shop offers",
-    "message_type":"meat promo",
+    "subtopic":"meat promo",
     "length":14,
     "data":"promo for pork"
   },
   {
     "type":1,
     "topic":"Shop offers",
-    "message_type":"soda promo",
+    "subtopic":"soda promo",
     "length":12,
     "data":"soda 10% off"
   }

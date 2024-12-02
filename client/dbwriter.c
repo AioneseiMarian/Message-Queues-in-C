@@ -37,7 +37,7 @@ void writter(int fd) {
 }
 
 int main() {
-    int fd = open("database/publ_db.json", O_WRONLY | O_CREAT | O_TRUNC| O_APPEND);
+    int fd = open("database/publ_db.json", O_WRONLY | O_CREAT | O_TRUNC| O_APPEND, 0664);
     if (fd == -1) {
         perror("Err opening file");
         exit(EXIT_FAILURE);

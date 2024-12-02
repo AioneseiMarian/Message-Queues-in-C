@@ -1,40 +1,33 @@
 #define _GNU_SOURCE
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/epoll.h>
-#include <errno.h>
 
+#include "../header/hash_table.h"
 #define MAX_EVENTS 64
-
-#include "../header/queues.h"
-
 #define INITIALPUBQUEUECAP 4
 
-typedef struct {
+typedef struct Client {
     struct sockaddr_in client_addr;
     int client_fd;
-    int client_size;
+    unsigned int client_size;
 } Client;
 
-typedef struct {
+typedef struct Server {
     int server_fd;
     struct sockaddr_in server_addr;
-    // Messages heaps | Messages queues
-    Heap** publisher_queues;
-    RequestQueue** req_queues;
+    HashTable* messages;
 } Server;
 
-
-
-void setNonBlocking(int fd) {
+void set_Non_Blocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1) {
         perror("Error getting socket flags");
@@ -45,166 +38,157 @@ void setNonBlocking(int fd) {
         exit(EXIT_FAILURE);
     }
 }
-
-
-Heap** initPublisherQueues() {
-    Heap** _queues = (Heap**)malloc(sizeof(Heap*) * MSG_TERMINAL);
-    if (_queues == NULL) {
+Server* init_Server(char* _addr, int _port) {
+    Server* server = (Server*)malloc(sizeof(Server));
+    if (server == NULL) {
         perror("Error allocating memory");
         exit(EXIT_FAILURE);
     }
-    for (int i = 0; i < MSG_TERMINAL; ++i) {
-        _queues[i] = createQueue(INITIALPUBQUEUECAP);
-    }
-    return _queues;
-}
-
-RequestQueue** initRequestQueues() {
-    RequestQueue** req_queue =
-        (RequestQueue**)malloc(sizeof(RequestQueue*) * MSG_TERMINAL);
-    if (req_queue == NULL) {
-        perror("Error allocating memory");
-        exit(-1);
-    }
-    for (int i = 0; i < MSG_TERMINAL; i++) {
-        req_queue[i] = createReqQueue();
-    }
-
-    return req_queue;
-}
-
-Server* initServer(char* _addr, int _port) {
-    Server* _server = (Server*)malloc(sizeof(Server));
-    if (_server == NULL) {
-        perror("Error allocating memory");
-        exit(EXIT_FAILURE);
-    }
-    _server->server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (_server->server_fd < 0) {
+    server->server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server->server_fd < 0) {
         perror("Error creating socket");
         exit(EXIT_FAILURE);
     }
+	int opt = 1;
+	if(setsockopt(server->server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0){
+		perror("Setsockopt failed");
+		close(server->server_fd);
+		exit(EXIT_FAILURE);
+	}
     printf("Socket created succesfully\n");
 
-    _server->server_addr.sin_family = AF_INET;
-    _server->server_addr.sin_port = htons(_port);
-    _server->server_addr.sin_addr.s_addr = inet_addr(_addr);
+    server->server_addr.sin_family = AF_INET;
+    server->server_addr.sin_port = htons(_port);
+    server->server_addr.sin_addr.s_addr = inet_addr(_addr);
 
-    _server->publisher_queues = initPublisherQueues();
-    _server->req_queues = initRequestQueues();
+    server->messages = create_Hashtable();
 
-    if (bind(_server->server_fd, (struct sockaddr*)&(_server->server_addr),
-             sizeof(_server->server_addr)) < 0) {
+    if (bind(server->server_fd, (struct sockaddr*)&(server->server_addr),
+             sizeof(server->server_addr)) < 0) {
         perror("Error on binding");
         exit(EXIT_FAILURE);
     }
-    
-    if (listen(_server->server_fd, 10) < 0) {
+    if (listen(server->server_fd, 10) < 0) {
         perror("Error on listening");
-        close(_server->server_fd);
+        close(server->server_fd);
         exit(EXIT_FAILURE);
     }
-
-    return _server;
+    return server;
 }
-char* getStringType(MsgType _type) {
-    switch (_type) {
-        case MSG_BIN_DATA:
-            return "Binary Data";
-        case MSG_NOTIF:
-            return "Notification";
-        case MSG_SYS_INFO:
-            return "System information";
-        case MSG_TASK:
-            return "Task";
-        case MSG_TERMINAL:
-            return "Termination message";
-    }
-    return NULL;
-}
-void printHeader(MessageHeader* _hdr) {
-    printf("type: %s\npriority: %s\npubID: %i\nlenght: %i\n",
-           getStringType(_hdr->type), _hdr->has_prioriry ? "High" : "Low",
-           _hdr->publisherID, _hdr->len);
-}
-void printMessage(Message* _msg) {
-    printHeader(&_msg->header);
-    write(STDOUT_FILENO, _msg->data, _msg->header.len);
-    printf("\n");
-}
-void listenClient(Server* _server, Client* _client) {
-    if (listen(_server->server_fd, 1) < 0) {
+void listenClient(Server* server, Client* client) {
+    if (listen(server->server_fd, 1) < 0) {
         perror("Error while listening");
         exit(EXIT_FAILURE);
     }
     printf("Listening client . . . \n");
-    _client->client_size = sizeof(_client->client_addr);
-    _client->client_fd =
-        accept(_server->server_fd, (struct sockaddr*)&(_client->client_addr),
-               &(_client->client_size));
-    if (_client->client_fd < 0) {
+    client->client_size = sizeof(client->client_addr);
+    client->client_fd = accept(server->server_fd,
+                               (struct sockaddr*)&(client->client_addr),
+                               &(client->client_size));
+    if (client->client_fd < 0) {
         perror("Can't accept publisher");
         exit(EXIT_FAILURE);
     }
     printf("Publisher connected at IP: %s and port: %i\n",
-           inet_ntoa(_client->client_addr.sin_addr),
-           ntohs(_client->client_addr.sin_port));
+           inet_ntoa(client->client_addr.sin_addr),
+           ntohs(client->client_addr.sin_port));
 }
-void readMessage(Client* _publisher, Message* _msg) {
-    int totalRecv = 0;
-    int bytesRead;
-    while (totalRecv < _msg->header.len) {
-        bytesRead = recv(_publisher->client_fd, _msg->data + totalRecv,
-                         _msg->header.len - bytesRead, 0);
-        if (bytesRead < 0) {
-            perror("Error receiving");
-        }
-        totalRecv += bytesRead;
+void close_Server(Server* server) {
+    close(server->server_fd);
+    free(server);
+}
+void store_Message(Server* server, Message* msg){
+    insert_Hashtable(server->messages, msg->header.topic, msg->header.subtopic, msg);
+}
+Message* retrieve_Message(Server* server, const char* topic, const char* subtopic){
+	unsigned int index = hash_Function(topic);
+	HashTableEntry* entry = server->messages->buckets[index];
+	HashTableEntry* prev = NULL;
+	while(entry){
+		if(strcmp(entry->topic, topic) == 0){
+			Queue_Node* messages = search_Rbt(entry->tree, subtopic);
+			if(messages){
+				void* data = pop_Queue(&messages);
+				if(messages == NULL){
+					delete_Rbt(entry->tree, subtopic);
+				}
+				if(entry->tree->root == entry->tree->NIL){
+					if(prev){
+						prev->next = entry->next;
+					}else{
+						server->messages->buckets[index] = entry->next;
+					}
+					free_Rbt(entry->tree);
+					free(entry);
+				}
+				return (Message*)data;
+			}
+			fprintf(stderr, "Subtopic '%s' is not found under topic '%s'\n", subtopic, topic);
+			return NULL;
+		}
+		prev = entry;
+		entry = entry->next;
+	}
+	fprintf(stderr, "Topic '%s' not found in the hash table\n", topic);
+	return NULL;
+}
+void handle_Publishing(Server* server, struct json_object* parsed_msg) {
+    Message* msg = create_Message_From_Json(parsed_msg);
+	store_Message(server, msg);
+	/* print_Hashtable(server->messages); */
+}
+void handle_Subscription(Server* server, struct json_object* parsed_msg) {
+}
+void handle_Notification(Server* server, struct json_object* parsed_msg) {
+}
+void process_json_message(Server* server, json_object* parsed_msg) {
+    MsgType msg_type;
+    struct json_object* type;
+    if (json_object_object_get_ex(parsed_msg, "type", &type)) {
+        msg_type = json_object_get_int(type);
+    }
+    switch (msg_type) {
+        case MSG_PUBLISHING:
+            handle_Publishing(server, parsed_msg);
+            break;
+        case MSG_SUBSCRIPTION:
+            handle_Subscription(server, parsed_msg);
+            break;
+        case MSG_NOTIFICATION:
+            handle_Notification(server, parsed_msg);
+            break;
+        default:
+            fprintf(stderr, "Invalid message type");
     }
 }
-void fetchPublications(Server* _server) {
-    Client* publisher = (Client*)malloc(sizeof(Client));
-    if (publisher == NULL) {
-        perror("Error allocating publisher memory");
-        exit(EXIT_FAILURE);
+void parse_received_json(Server* server, char* json_string) {
+    struct json_tokener* tok = json_tokener_new();
+    struct json_object* json_msg;
+    enum json_tokener_error jerr;
+
+    char* start = json_string;
+    while (*start) {
+        json_msg = json_tokener_parse_ex(tok, start, strlen(start));
+        jerr = json_tokener_get_error(tok);
+        if (jerr == json_tokener_success) {
+            process_json_message(server, json_tokener_parse(json_string));
+            start += (tok->char_offset);
+            json_object_put(json_msg);
+        } else if (jerr == json_tokener_continue) {
+            break;
+        } else {
+            fprintf(stderr, "JSON parsing error: %s\n", json_tokener_error_desc(jerr));
+            ++start;
+        }
     }
-    listenClient(_server, publisher);
-    int ret;
-    Message* msg = (Message*)malloc(sizeof(Message));
-    char header_buf[sizeof(MessageHeader)];
-    do {
-        if ((ret = recv(publisher->client_fd, header_buf, sizeof(MessageHeader),
-                        0)) < 0) {
-            printf("Error receiving message from publisher");
-        }
-        memcpy(&(msg->header), header_buf, sizeof(MessageHeader));
-        msg->data = (char*)malloc(sizeof(char) * msg->header.len);
-        if (msg == NULL) {
-            perror("Error allocating memory");
-            exit(EXIT_FAILURE);
-        }
-        readMessage(publisher, msg);
-        // printMessage(msg);
-        if (msg->header.type != MSG_TERMINAL) {
-            pushHeap(_server->publisher_queues[msg->header.type], *msg);
-        }
-    } while (msg->header.type != MSG_TERMINAL);
-    close(publisher->client_fd);
-    free(publisher);
-}
-void testMessageQueues(Server* _server) {
-    Message msg = popHeap(_server->publisher_queues[MSG_NOTIF]);
-    printMessage(&msg);
-}
-void closeServer(Server* _server) {
-    close(_server->server_fd);
-    free(_server->publisher_queues);
-    free(_server);
-}
+    size_t remaining = strlen(start);
+    memmove(json_string, start, remaining);
+    json_string[remaining] = '\0';
 
-
-void handleClientRead(int client_fd) {
-    char buf[1024];
+    json_tokener_free(tok);
+}
+void handle_Client_Read(Server* server, int client_fd) {
+    char buf[BUFSIZ / 2];
     while (1) {
         int bytesRead = read(client_fd, buf, sizeof(buf));
         if (bytesRead == 0) {
@@ -220,13 +204,14 @@ void handleClientRead(int client_fd) {
                 break;
             }
         } else {
-            printf("Received: %.*s\n", bytesRead, buf);
+            buf[bytesRead] = '\0';
+            printf("Received: %i\n", bytesRead);
+            parse_received_json(server, buf);
         }
     }
 }
 
-
-void startEpollServer(Server* _server) {
+void start_Epoll_Server(Server* server) {
     int epoll_fd = epoll_create1(0);
     if (epoll_fd == -1) {
         perror("Error creating epoll instance");
@@ -234,15 +219,15 @@ void startEpollServer(Server* _server) {
     }
 
     struct epoll_event ev, events[MAX_EVENTS];
-    ev.events = EPOLLIN | EPOLLET;  
-    ev.data.fd = _server->server_fd;
+    ev.events = EPOLLIN | EPOLLET;
+    ev.data.fd = server->server_fd;
 
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, _server->server_fd, &ev) == -1) {
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server->server_fd, &ev) == -1) {
         perror("Error adding server socket to epoll");
         exit(EXIT_FAILURE);
     }
 
-    setNonBlocking(_server->server_fd); 
+    set_Non_Blocking(server->server_fd);
     while (1) {
         int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
         if (nfds == -1) {
@@ -251,20 +236,20 @@ void startEpollServer(Server* _server) {
         }
 
         for (int i = 0; i < nfds; i++) {
-            if (events[i].data.fd == _server->server_fd) {
+            if (events[i].data.fd == server->server_fd) {
                 while (1) {
-                    Client* _client = (Client*)malloc(sizeof(Client));
-                    if (!_client) {
+                    Client* client = (Client*)malloc(sizeof(Client));
+                    if (!client) {
                         perror("Error allocating client memory");
                         continue;
                     }
 
-                    _client->client_size = sizeof(_client->client_addr);
-                    _client->client_fd =
-                        accept(_server->server_fd, (struct sockaddr*)&_client->client_addr,
-                               &_client->client_size);
-                    if (_client->client_fd < 0) {
-                        free(_client);
+                    client->client_size = sizeof(client->client_addr);
+                    client->client_fd = accept(server->server_fd,
+                                               (struct sockaddr*)&client->client_addr,
+                                               &client->client_size);
+                    if (client->client_fd < 0) {
+                        free(client);
                         if (errno == EAGAIN || errno == EWOULDBLOCK) {
                             // Toate conexiunile au fost acceptate.
                             break;
@@ -275,38 +260,33 @@ void startEpollServer(Server* _server) {
                     }
 
                     printf("New client connected\n");
-                    setNonBlocking(_client->client_fd); 
+                    set_Non_Blocking(client->client_fd);
 
                     ev.events = EPOLLIN | EPOLLET;  // Edge Triggered pentru client.
-                    ev.data.fd = _client->client_fd;
+                    ev.data.fd = client->client_fd;
 
-                    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, _client->client_fd, &ev) == -1) {
+                    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client->client_fd, &ev) == -1) {
                         perror("Error adding client socket to epoll");
-                        close(_client->client_fd);
-                        free(_client);
+                        close(client->client_fd);
+                        free(client);
                         continue;
                     }
                 }
             } else {
-                // Gestionam un client existent
-                handleClientRead(events[i].data.fd);
+                handle_Client_Read(server, events[i].data.fd);
             }
         }
     }
 }
 
-
-
 int main() {
     setbuf(stdout, NULL);
-    Server* server = initServer(SERVER_IPADDR, SERVER_PORT);
-    startEpollServer(server);
-
-    // fetchPublications(server);
+    Server* server = init_Server(SERVER_IPADDR, SERVER_PORT);
+    start_Epoll_Server(server);
 
     // testMessageQueues(server);
     // testMessageQueues(server);
 
-    // closeServer(server);
+    // close_Server(server);
     return 0;
 }

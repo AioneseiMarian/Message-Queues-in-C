@@ -12,26 +12,21 @@
 
 #include "../header/message.h"
 #include "../header/queues.h"
-#include "../header/rbtree.h"
 
 #define MSGSIZ 2048
 #define MSGFILENAME "database/publ_db.json"
-
-int pop_counter = 0;
-int push_counter = 0;
 
 typedef struct Publisher {
     int socket_fd;
     struct sockaddr_in server_addr;
     int db_fd;
     Queue_Node *messages_queue;
-	RBTree* test_tree;
 } Publisher;
 
 void print_Message(Message *message) {
     printf("Type: %i\nTopic: %s\nSubtopic: %s\nLength: %i\nData: %s\n\n",
-           message->header.msg_type, message->header.channel,
-           message->header.topic, message->header.len, message->data);
+           message->header.msg_type, message->header.topic,
+           message->header.subtopic, message->header.len, message->data);
 }
 Publisher *init_Server(char *_addr, int _port) {
     Publisher *publisher = (Publisher *)malloc(sizeof(Publisher));
@@ -47,31 +42,30 @@ Publisher *init_Server(char *_addr, int _port) {
     printf("Socket created successfully\n");
 
     publisher->messages_queue = NULL;
-	publisher->test_tree = create_Rbtree();
 
     publisher->server_addr.sin_family = AF_INET;
     publisher->server_addr.sin_port = htons(_port);
     publisher->server_addr.sin_addr.s_addr = inet_addr(_addr);
 
-    publisher->db_fd = open(MSGFILENAME, O_RDONLY);
+    if (connect(publisher->socket_fd,
+                (struct sockaddr *)&(publisher->server_addr),
+                sizeof(publisher->server_addr)) < 0) {
+        perror("Unable to connect");
+        exit(EXIT_FAILURE);
+    }
+    printf("Connected with server successfully\n");
+
+    return publisher;
+}
+void fetch_All_From_DB(Publisher *publisher, const char* file_name) {
+    publisher->db_fd = open(file_name, O_RDONLY);
     if (publisher->db_fd == -1) {
         perror("Error opening messages_queue file");
         exit(EXIT_FAILURE);
     }
-    /* if (connect(publisher->socket_fd, */
-    /*             (struct sockaddr *)&(publisher->server_addr), */
-    /*             sizeof(publisher->server_addr)) < 0) { */
-    /*     perror("Unable to connect"); */
-    /*     exit(EXIT_FAILURE); */
-    /* } */
-    /* printf("Connected with server successfully\n"); */
 
-    return publisher;
-}
-void fetch_All_From_DB(Publisher *publisher) {
     size_t file_length = lseek(publisher->db_fd, 0, SEEK_END);
     lseek(publisher->db_fd, 0, SEEK_SET);
-
     char *buffer = (char *)malloc((file_length + 1) * sizeof(char));
     if (buffer == NULL) {
         perror("Error allocating memory");
@@ -97,47 +91,45 @@ void fetch_All_From_DB(Publisher *publisher) {
             json_object_array_get_idx(parsed_array, i);
         Message *msg = create_Message_From_Json(message);
 		if(msg){
-			push_counter++;
-			printf("Push number %i:\n", push_counter);
 			push_Queue(&(publisher->messages_queue), msg);
-			insert_Rbt(publisher->test_tree, msg);
 		}else{
 			perror("Empty message. Can't push to queue");
 		}
 	}
 }
-void send_message(Publisher *publisher) {
+void send_Message(Publisher *publisher) {
 	if (!publisher->messages_queue) {
 		fprintf(stderr, "Queue is empty. No message to send.\n");
 		return;
 	}
-
     Message *msg = pop_Queue(&(publisher->messages_queue));
-	RBTNode* found_Rbt_node = search_Rbt(publisher->test_tree, publisher->test_tree->root, "File operations");
-	Message* msg_rbt = found_Rbt_node->msg;
-	delete_Rbt(publisher->test_tree, found_Rbt_node);
-	printf("Message popped from queue:\n");
-    print_Message(msg);
-	printf("Message extracted from rbtree:\n");
-	print_Message(msg_rbt);
     if (msg == NULL) {
         fprintf(stderr, "Empty queue. Can't send to server");
         return;
     }
+	printf("Sending message:\n");
+	print_Message(msg);
 
     json_object *json_message = create_Json_From_Message(
-        msg->header.msg_type, msg->header.channel,
-        msg->header.topic, msg->header.len, msg->data);
+        msg->header.msg_type, msg->header.topic,
+        msg->header.subtopic, msg->header.len, msg->data);
     free(msg);
 
-	// Sending to socket
+	const char* json_string = json_object_to_json_string(json_message);
+	size_t json_length = strlen(json_string);
+	printf("About to send\n");
+	ssize_t sent_bytes = send(publisher->socket_fd, json_string, json_length, 0);
+	if(sent_bytes < 0){
+		perror("Sending message to server Failed");
+	}else{
+		printf("Sent %zd bytes successfully.\n", sent_bytes);
+	}
+
 	json_object_put(json_message);
 }
 void send_All_Messages(Publisher* publisher){
 	while (publisher->messages_queue != NULL){
-		pop_counter++;
-		printf("Sending message number %i:\n", pop_counter);
-		send_message(publisher);
+		send_Message(publisher);
 	}
 }
 void close_Publisher_Client(Publisher *publisher) {
@@ -147,11 +139,10 @@ void close_Publisher_Client(Publisher *publisher) {
     free(publisher);
 }
 int main(void) {
-    setbuf(stdin, NULL);
     Publisher *publisher_client = init_Server(SERVER_IPADDR, SERVER_PORT);
-    fetch_All_From_DB(publisher_client);
+    fetch_All_From_DB(publisher_client, MSGFILENAME);
 	send_All_Messages(publisher_client);
-    /* close_Publisher_Client(publisher_client); */
+    close_Publisher_Client(publisher_client);
 
     return 0;
 }

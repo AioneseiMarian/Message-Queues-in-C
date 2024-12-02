@@ -1,16 +1,16 @@
 #include "../header/rbtree.h"
 
-RBTNode* create_Rbt_Node(Message* msg) {
+RBTNode* create_Rbt_Node(RBTree* tree, const char* subtopic, void* data) {
     RBTNode* node = (RBTNode*)malloc(sizeof(RBTNode));
     if (node == NULL) {
         perror("Error allocating memory for node");
         exit(-1);
     }
-    node->msg = msg;
+    strcpy(node->subtopic, subtopic);
+    node->messages = NULL;
+    push_Queue(&(node->messages), data);
     node->color = RED;
-    node->parent = NULL;
-    node->left = NULL;
-    node->right = NULL;
+    node->parent = node->left = node->right = tree->NIL;
     return node;
 }
 RBTree* create_Rbtree() {
@@ -19,12 +19,13 @@ RBTree* create_Rbtree() {
         perror("Error allocating message for rbtree");
         exit(EXIT_FAILURE);
     }
-	Message* tmp_msg = (Message*)malloc(sizeof(Message));
-	memset(tmp_msg->header.topic, 0, TOPICSIZ);
-	tmp_msg->data = NULL;
-
-	tree->NIL = create_Rbt_Node(tmp_msg);
+    tree->NIL = (RBTNode*)malloc(sizeof(RBTNode));
+    if (tree->NIL == NULL) {
+        perror("Failed to allocate memory for Red-Black Tree Node");
+        exit(EXIT_FAILURE);
+    }
     tree->NIL->color = BLACK;
+    tree->NIL->left = tree->NIL->right = tree->NIL->parent = NULL;
     tree->root = tree->NIL;
     return tree;
 }
@@ -103,40 +104,60 @@ void insert_Rbt_Balance(RBTree* tree, RBTNode* z) {
     }
     tree->root->color = BLACK;
 }
-void insert_Rbt(RBTree* tree, Message* msg) {
-    RBTNode* z = create_Rbt_Node(msg);
+void insert_Rbt(RBTree* tree, const char* subtopic, void* data) {
+    RBTNode* z = create_Rbt_Node(tree, subtopic, data);
     RBTNode* y = tree->NIL;
     RBTNode* x = tree->root;
 
     while (x != tree->NIL) {
         y = x;
-        if (z->msg < x->msg)
+        if (strcmp(z->subtopic, x->subtopic) < 0)
             x = x->left;
-        else
+        else if (strcmp(z->subtopic, x->subtopic) > 0)
             x = x->right;
+        else {
+            push_Queue(&(x->messages), data);
+            free(z);
+            return;
+        }
     }
 
     z->parent = y;
     if (y == tree->NIL)
         tree->root = z;
-    else if (z->msg < y->msg)
+    else if (strcmp(z->subtopic, y->subtopic) < 0)
         y->left = z;
     else
         y->right = z;
 
-    z->left = tree->NIL;
-    z->right = tree->NIL;
-    z->color = RED;
+    /* z->left = tree->NIL; */
+    /* z->right = tree->NIL; */
+    /* z->color = RED; */
 
     insert_Rbt_Balance(tree, z);
 }
-RBTNode* search_Rbt(RBTree* tree, RBTNode* node, const char* subtopic){
-	if(node == tree->NIL || strcmp(node->msg->header.topic, subtopic)==0)
-		return node;
-	if(strcmp(subtopic, node->msg->header.topic)<0)
-		return search_Rbt(tree, node->left, subtopic);
-	else
-		return search_Rbt(tree, node->right, subtopic);
+Queue_Node* search_Rbt(RBTree* tree, const char* subtopic) {
+    RBTNode* current = tree->root;
+
+    while (current != tree->NIL) {
+        int cmp = strcmp(subtopic, current->subtopic);
+        if (cmp == 0)
+            return current->messages;
+        else if (cmp < 0)
+            current = current->left;
+        else
+            current = current->right;
+    }
+    return NULL;
+}
+RBTNode* search_Rbt_Node(RBTree* tree, RBTNode* node, const char* subtopic) {
+    while (node != tree->NIL && strcmp(subtopic, node->subtopic) != 0) {
+        if (strcmp(subtopic, node->subtopic) < 0)
+            node = node->left;
+        else
+            node = node->right;
+    }
+    return node;
 }
 void transplant_Rbt(RBTree* tree, RBTNode* u, RBTNode* v) {
     if (u->parent == tree->NIL)
@@ -206,67 +227,79 @@ void delete_Rbt_Balance(RBTree* tree, RBTNode* x) {
     }
     x->color = BLACK;
 }
-void delete_Rbt(RBTree *tree, RBTNode *z){
-	RBTNode* y=z;
-	RBTNode* x;
-	Color y_original_color = y->color;
+void delete_Rbt(RBTree* tree, const char* subtopic) {
+    RBTNode* z = search_Rbt_Node(tree, tree->root, subtopic);
+    if (z == tree->NIL) {
+        fprintf(stderr, "Subtopic '%s' not found in RB tree\n", subtopic);
+        return;
+    }
+    RBTNode* y = z;
+    RBTNode* x;
+    int y_original_color = y->color;
 
-	if(z->left==tree->NIL){
-		x=z->right;
-		transplant_Rbt(tree, z, z->right);
-	}else if(z->right==tree->NIL){
-		x=z->left;
-		transplant_Rbt(tree, z, z->left);
-	}else{
-		y=minimum_Rbt(tree, z->right);
-		y_original_color = y->color;
-		x=y->right;
+    if (z->left == tree->NIL) {
+        x = z->right;
+        transplant_Rbt(tree, z, z->right);
+    } else if (z->right == tree->NIL) {
+        x = z->left;
+        transplant_Rbt(tree, z, z->left);
+    } else {
+        y = minimum_Rbt(tree, z->right);
+        y_original_color = y->color;
+        x = y->right;
 
-		if(y->parent==z)
-			x->parent=y;
-		else{
-			transplant_Rbt(tree, y, y->right);
-			y->right=z->right;
-			y->right->parent=y;
-		}
+        if (y->parent == z)
+            x->parent = y;
+        else {
+            transplant_Rbt(tree, y, y->right);
+            y->right = z->right;
+            y->right->parent = y;
+        }
 
-		transplant_Rbt(tree, z, y);
-		y->left=z->left;
-		y->left->parent=y;
-		y->color=z->color;
-	}
+        transplant_Rbt(tree, z, y);
+        y->left = z->left;
+        y->left->parent = y;
+        y->color = z->color;
+    }
 
-	if(y_original_color==BLACK)
-		delete_Rbt_Balance(tree, x);
+    if (y_original_color == BLACK)
+        delete_Rbt_Balance(tree, x);
 
-	free(z);
+    free(z);
 }
-void free_Rbt(RBTree* tree){
-	RBTNode* current=tree->root;
-	RBTNode* prev=NULL;
+void free_Rbt(RBTree* tree) {
+    RBTNode* current = tree->root;
+    RBTNode* prev = NULL;
 
-	while(current!=tree->NIL){
-		if(current->left==tree->NIL){
-			prev=current;
-			current=current->right;
-			free(prev);
-		}else{
-			RBTNode* predecessor=current->left;
-			while(predecessor->right!=tree->NIL && predecessor->right!=current){
-				predecessor=predecessor->right;
-			}
+    while (current != tree->NIL) {
+        if (current->left == tree->NIL) {
+            prev = current;
+            current = current->right;
+            free(prev);
+        } else {
+            RBTNode* predecessor = current->left;
+            while (predecessor->right != tree->NIL && predecessor->right != current) {
+                predecessor = predecessor->right;
+            }
 
-			if(predecessor->right==tree->NIL){
-				predecessor->right=current;
-				current=current->left;
-			}else{
-				predecessor->right=tree->NIL;
-				prev=current;
-				current=current->right;
-				free(prev);
-			}
-		}
-	}
-	free(tree->NIL);
-	free(tree);
+            if (predecessor->right == tree->NIL) {
+                predecessor->right = current;
+                current = current->left;
+            } else {
+                predecessor->right = tree->NIL;
+                prev = current;
+                current = current->right;
+                free(prev);
+            }
+        }
+    }
+    free(tree->NIL);
+    free(tree);
+}
+void print_Rbt_inorder(RBTree* tree, RBTNode* node) {
+    if (node != tree->NIL) {
+        print_Rbt_inorder(tree, node->left);
+		printf("\t\tTopic: %s\n\tMessages: %i\n\n", node->subtopic, get_Queue_Size(node->messages));
+        print_Rbt_inorder(tree, node->right);
+    }
 }
