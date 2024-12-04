@@ -3,10 +3,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "message.h"
 
-#define INITIAL_QUEUE_SIZE 4
+typedef struct Queue_Node{
+	struct Queue_Node* next_node;
+	void* data;
+}Queue_Node;
 
+<<<<<<< HEAD
 
 typedef struct Heap{
     Message* heap;
@@ -41,5 +44,12 @@ Message popHeap(Heap* _heap);
 Heap* createQueue(int _capacity);
 void resizeHeap(Heap* _heap);
 void freeQueue(Heap* _heap);
+=======
+Queue_Node* create_Queue_Node();
+void push_Queue(Queue_Node** head, void* data);
+void* pop_Queue(Queue_Node** head);
+void free_Queue(Queue_Node** head);
+int get_Queue_Size(Queue_Node* head);
+>>>>>>> c7d12ec6ed91c56bba460438552e3d8e48fb4dbb
 
 #endif

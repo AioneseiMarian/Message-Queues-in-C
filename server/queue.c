@@ -1,81 +1,65 @@
 #include "../header/queues.h"
-#include <string.h>
 
-RequestNode* createReqNode(){
-    RequestNode* node = (RequestNode*) malloc(sizeof(RequestNode));
-    if (node == NULL) {
-        perror("Error allocating memory");
-        exit(-1);
-    }
-    node->next_node = NULL;
-    node->request = NULL;
-    return node;
-}
-
-
-RequestQueue* createReqQueue(char channel[40]) {
-    RequestQueue* req_queue = (RequestQueue*)malloc(sizeof(RequestQueue));
-    if (req_queue == NULL) {
-        perror("Error allocating memory");
-        exit(-1);
-    }
-    req_queue->head_node = createReqNode();
-    strncpy(req_queue->chanell_type, channel, sizeof(req_queue->chanell_type) - 1);
-    req_queue->chanell_type[sizeof(req_queue->chanell_type) - 1] = '\0'; 
-
-    return req_queue;
-}
-void pushRequest(RequestQueue** _req_queue, Request* _request, char channel[40]) {
-    if (*_req_queue == NULL) {
-        *_req_queue = createReqQueue(channel);
-        (*_req_queue)->head_node->request = _request;
-        return;
-    }
-
-    RequestNode* currentNode = (*_req_queue)->head_node;
-    while (currentNode->next_node != NULL) {
-        currentNode = currentNode->next_node;
-    }
-    currentNode->next_node = createReqNode();
-    currentNode->next_node->request = _request;
-}
-
-
-Request* popRequest(RequestQueue* _req_queue) {
-    if (_req_queue == NULL || _req_queue->head_node == NULL) {
-        fprintf(stderr, "Trying to pop from empty Request Queue");
+Queue_Node* create_Queue_Node() {
+    Queue_Node* node = (Queue_Node*)malloc(sizeof(Queue_Node));
+    if (!node) {
+        perror("Error allocating queue memory");
         return NULL;
     }
-
-    RequestNode* aux = _req_queue->head_node;
-    _req_queue->head_node = _req_queue->head_node->next_node;
-
-    Request* poped_request = aux->request;
-    free(aux);
-    aux = NULL;
-
-    if(_req_queue->head_node == NULL){
-        free(_req_queue);
-        _req_queue == NULL;
-    }
-
-    return poped_request;
+    node->next_node = NULL;
+    node->data = NULL;
+    return node;
 }
-
-void freeReqQueue(RequestQueue** _req_queue) {
-    if (*_req_queue == NULL) {
+void push_Queue(Queue_Node** head, void* data) {
+    if (!head) {
+        fprintf(stderr, "Queue head is still NULL. Can't allocate data");
         return;
     }
-
-    RequestNode* current_node = (*_req_queue)->head_node;
-    while (current_node != NULL) {
-        RequestNode* next_node = current_node->next_node;
-        free(current_node->request);
-        free(current_node);
-        current_node = next_node;
+    Queue_Node* node = create_Queue_Node();
+    if (!node) {
+        return;
     }
-
-    free(*_req_queue);
-    *_req_queue = NULL; 
+    node->data = data;
+    if (*head == NULL) {
+        *head = node;
+    } else {
+        Queue_Node* current = *head;
+        while (current->next_node != NULL) {
+            current = current->next_node;
+        }
+        current->next_node = node;
+    }
 }
-
+void* pop_Queue(Queue_Node** head) {
+    if (!head || !*head) {
+        fprintf(stderr, "Queue is empty or NULL. Can't pop.\n");
+        return NULL;
+    }
+    Queue_Node* node = *head;
+    void* data = node->data;
+    *head = node->next_node;
+    free(node);
+    return data;
+}
+void free_Queue(Queue_Node** head) {
+    if (!head) {
+        fprintf(stderr, "Queue head is NULL. Nothing to free.\n");
+        return;
+    }
+    Queue_Node* current = *head;
+    while (current != NULL) {
+        Queue_Node* next_node = current->next_node;
+        free(current);
+        current = next_node;
+    }
+    *head = NULL;
+}
+int get_Queue_Size(Queue_Node* head) {
+    int size = 0;
+    Queue_Node* current = head;
+    while (current != NULL) {
+        size++;
+        current = current->next_node;
+    }
+    return size;
+}

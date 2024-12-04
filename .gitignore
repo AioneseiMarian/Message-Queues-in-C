@@ -2,7 +2,9 @@
 .clang-format
 
 # binaries
-_*
+publisher
+serv
+dbwriter
 
 # test files
 test*
