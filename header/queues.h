@@ -27,7 +27,7 @@ typedef struct RequestQueue{
 }RequestQueue;
 
 
-RequestQueue* createReqQueue();
+RequestQueue* createReqQueue(char channel[40]);
 void pushRequest(RequestQueue** _req_queue, Request* _request, char* channel);
 Request* popRequest(RequestQueue* _req_queue);
 void freeReqQueue(RequestQueue** _req_queue);

@@ -59,19 +59,7 @@ Heap** initPublisherQueues() {
     return _queues;
 }
 
-RequestQueue** initRequestQueues() {
-    RequestQueue** req_queue =
-        (RequestQueue**)malloc(sizeof(RequestQueue*) * MSG_TERMINAL);
-    if (req_queue == NULL) {
-        perror("Error allocating memory");
-        exit(-1);
-    }
-    for (int i = 0; i < MSG_TERMINAL; i++) {
-        req_queue[i] = createReqQueue();
-    }
 
-    return req_queue;
-}
 
 Server* initServer(char* _addr, int _port) {
     Server* _server = (Server*)malloc(sizeof(Server));
@@ -91,7 +79,6 @@ Server* initServer(char* _addr, int _port) {
     _server->server_addr.sin_addr.s_addr = inet_addr(_addr);
 
     _server->publisher_queues = initPublisherQueues();
-    _server->req_queues = initRequestQueues();
 
     if (bind(_server->server_fd, (struct sockaddr*)&(_server->server_addr),
              sizeof(_server->server_addr)) < 0) {
