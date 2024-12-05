@@ -11,31 +11,20 @@
 
 #include "../header/message.h"
 
-#define SERVER_PORT 8000
+#define SERVER_PORT 8080
 #define SERVER_IPADDR "127.0.0.2"
+#define MSGFILENAME "database/sub_db.json"
+
 
 typedef struct {
     struct sockaddr_in server_addr;
     int server_fd;
+    int db_fd
 } Client;
 
 Client* client;
 
-char* getStringType(MsgType _type) {
-    switch (_type) {
-        case MSG_BIN_DATA:
-            return "Binary Data";
-        case MSG_NOTIF:
-            return "Notification";
-        case MSG_SYS_INFO:
-            return "System information";
-        case MSG_TASK:
-            return "Task";
-        case MSG_TERMINAL:
-            return "Termination message";
-    }
-    return NULL;
-}
+
 
 int init_client() {
     client = malloc(sizeof(Client));
@@ -62,34 +51,74 @@ int init_client() {
     return 0;
 }
 
+
+void fetch_from_db(Client *subscriber, const char* file_name) 
+{
+    subscriber->db_fd = open(file_name, O_RDONLY);
+    if (subscriber->db_fd == -1) {
+        perror("Error opening messages_queue file");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t file_length = lseek(subscriber->db_fd, 0, SEEK_END);
+    lseek(subscriber->db_fd, 0, SEEK_SET);
+    char *buffer = (char *)malloc((file_length + 1) * sizeof(char));
+    if (buffer == NULL) {
+        perror("Error allocating memory");
+        exit(EXIT_FAILURE);
+    }
+    if (read(subscriber->db_fd, buffer, file_length) < 0) {
+        perror("Error reading from messages_queue database");
+        exit(EXIT_FAILURE);
+    }
+    close(subscriber->db_fd);
+
+    struct json_object *parsed_array = json_tokener_parse(buffer);
+    free(buffer);
+    if (!parsed_array ||
+        json_object_get_type(parsed_array) != json_type_array) {
+        perror("Failed to parse JSON string");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t array_length = json_object_array_length(parsed_array);
+    for (int i = 0; i < array_length; ++i) {
+        struct json_object *message =
+            json_object_array_get_idx(parsed_array, i);
+        Message *msg = create_Message_From_Json(message);
+        if(!msg){
+            perror("Empty message. Can't push to queue");
+        }
+    }
+}
+
+
+void subscribe_to_topic(char topic[TOPICSIZ], char subtopic[SUBTOPICSIZ])
+{
+
+    json_object *json_message = create_Json_From_Message(
+        MSG_SUBSCRIPTION, topic,
+        subtopic, 5, "NULL");
+
+	const char* json_string = json_object_to_json_string(json_message);
+    printf("%s\n", json_string);
+	size_t json_length = strlen(json_string);
+	printf("About to send\n");
+	ssize_t sent_bytes = send(client->server_fd, json_string, json_length, 0);
+	if(sent_bytes < 0){
+		perror("Sending message to server Failed");
+	}else{
+		printf("Sent %zd bytes successfully.\n", sent_bytes);
+	}
+	json_object_put(json_message);
+}
+
 int main(void) {
     if (init_client() == -1) {
         perror("");
         exit(-1);
     }
-
-    char server_message[2000], client_message[2000];
-    memset(server_message, '\0', sizeof(server_message));
-    memset(client_message, '\0', sizeof(client_message));
-
-    printf("Connected with server successfully\n");
-
-    printf("Enter message: ");
-    fgets(client_message, sizeof(client_message), stdin);
-
-    if (send(client->server_fd, client_message, strlen(client_message), 0) <
-        0) {
-        printf("Unable to send message\n");
-        return -1;
-    }
-
-    if (recv(client->server_fd, server_message, sizeof(server_message), 0) <
-        0) {
-        printf("Error while receiving server's msg\n");
-        return -1;
-    }
-
-    printf("Server's response: %s\n", server_message);
+    subscribe_to_topic("File operations", "file creation");
 
     close(client->server_fd);
 

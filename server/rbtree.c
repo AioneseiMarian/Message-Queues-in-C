@@ -1,7 +1,8 @@
 #include "../header/rbtree.h"
 
+
 RBTNode* create_Rbt_Node(RBTree* tree, const char* subtopic, void* data) {
-    RBTNode* node = (RBTNode*)malloc(sizeof(RBTNode));
+    RBTNode* node = (struct RBTNode*)malloc(sizeof(RBTNode));
     if (node == NULL) {
         perror("Error allocating memory for node");
         exit(-1);

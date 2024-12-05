@@ -44,27 +44,8 @@ Server* init_Server(char* _addr, int _port) {
         perror("Error allocating memory");
         exit(EXIT_FAILURE);
     }
-<<<<<<< HEAD
-    for (int i = 0; i < MSG_TERMINAL; ++i) {
-        _queues[i] = createQueue(INITIALPUBQUEUECAP);
-    }
-    return _queues;
-}
-
-
-
-Server* initServer(char* _addr, int _port) {
-    Server* _server = (Server*)malloc(sizeof(Server));
-    if (_server == NULL) {
-        perror("Error allocating memory");
-        exit(EXIT_FAILURE);
-    }
-    _server->server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (_server->server_fd < 0) {
-=======
     server->server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server->server_fd < 0) {
->>>>>>> c7d12ec6ed91c56bba460438552e3d8e48fb4dbb
         perror("Error creating socket");
         exit(EXIT_FAILURE);
     }
@@ -80,11 +61,7 @@ Server* initServer(char* _addr, int _port) {
     server->server_addr.sin_port = htons(_port);
     server->server_addr.sin_addr.s_addr = inet_addr(_addr);
 
-<<<<<<< HEAD
-    _server->publisher_queues = initPublisherQueues();
-=======
     server->messages = create_Hashtable();
->>>>>>> c7d12ec6ed91c56bba460438552e3d8e48fb4dbb
 
     if (bind(server->server_fd, (struct sockaddr*)&(server->server_addr),
              sizeof(server->server_addr)) < 0) {
