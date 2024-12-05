@@ -6,12 +6,13 @@
 #define TOPICSIZ 40
 #define SUBTOPICSIZ 40
 
+
 #include <json-c/json.h>
 
 typedef enum MsgType{
 	MSG_SUBSCRIPTION,
 	MSG_PUBLISHING,
-	MSG_NOTIFICATION,
+	MSG_ALERT,
 }MsgType;
 
 typedef struct{

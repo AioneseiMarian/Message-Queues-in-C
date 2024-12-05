@@ -7,10 +7,8 @@ all:: client/publisher.c server/server.c client/dbwriter.c client/subscriber.c
 	make publisher
 	make subscriber
 	make db
-.PHONY: publisher
 publisher: client/publisher.c
 	cc -Wall -g client/publisher.c $(SOURCE) -o publisher $(LDFLAGS)
-.PHONY: subscriber
 subscriber: client/subscriber.c
 	cc -Wall -g client/subscriber.c ${SOURCE} -o subscriber ${LDFLAGS}
 .PHONY: server

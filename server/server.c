@@ -136,7 +136,7 @@ Message* retrieve_Message(Server* server, const char* topic, const char* subtopi
 void handle_Publishing(Server* server, struct json_object* parsed_msg) {
     Message* msg = create_Message_From_Json(parsed_msg);
 	store_Message(server, msg);
-	/* print_Hashtable(server->messages); */
+	print_Hashtable(server->messages);
 }
 void handle_Subscription(Server* server, struct json_object* parsed_msg) {
 }
@@ -284,9 +284,6 @@ int main() {
     setbuf(stdout, NULL);
     Server* server = init_Server(SERVER_IPADDR, SERVER_PORT);
     start_Epoll_Server(server);
-
-    // testMessageQueues(server);
-    // testMessageQueues(server);
 
     // close_Server(server);
     return 0;
