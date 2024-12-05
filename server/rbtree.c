@@ -275,6 +275,7 @@ void free_Rbt(RBTree* tree) {
         if (current->left == tree->NIL) {
             prev = current;
             current = current->right;
+			free_Queue(&(prev->messages));
             free(prev);
         } else {
             RBTNode* predecessor = current->left;

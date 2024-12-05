@@ -95,6 +95,7 @@ void listenClient(Server* server, Client* client) {
 }
 void close_Server(Server* server) {
     close(server->server_fd);
+	free_Hashtable(server->messages);
     free(server);
 }
 void store_Message(Server* server, Message* msg){
