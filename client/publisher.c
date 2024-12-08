@@ -107,7 +107,7 @@ void send_Message(Publisher *publisher) {
         fprintf(stderr, "Empty queue. Can't send to server");
         return;
     }
-	printf("Sending message:\n");
+	printf("\n\nSending message:\n");
 	print_Message(msg);
 
     json_object *json_message = create_Json_From_Message(

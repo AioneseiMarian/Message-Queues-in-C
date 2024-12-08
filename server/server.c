@@ -15,18 +15,87 @@
 #define MAX_EVENTS 64
 #define INITIALPUBQUEUECAP 4
 
+#define THREAD_POOL_SIZE 4
+
 typedef struct Client {
     struct sockaddr_in client_addr;
     int client_fd;
     unsigned int client_size;
 } Client;
 
+typedef struct TaskQueue {
+    int client_fd_queue[MAX_EVENTS];
+    int front;
+    int rear;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+} TaskQueue;
+
 typedef struct Server {
     int server_fd;
+    int epoll_fd;
     struct sockaddr_in server_addr;
     HashTable* messages;
     HashTable* subscribtions;
+    TaskQueue task_queue;
 } Server;
+
+void handle_Client_Read(Server* server, int client_fd);
+void parse_received_json(Server* server, char* json_string, int client_fd);
+
+
+
+
+void init_TaskQueue(TaskQueue* queue) {
+    queue->front = 0;
+    queue->rear = 0;
+    pthread_mutex_init(&queue->mutex, NULL);
+    pthread_cond_init(&queue->cond, NULL);
+}
+
+void enqueue_TaskQueue(TaskQueue* queue, int client_fd) {
+    pthread_mutex_lock(&queue->mutex);
+
+    if ((queue->rear + 1) % MAX_EVENTS == queue->front) {
+        printf("Task queue full! Client FD %d was not enqueued.\n", client_fd);
+    } else {
+        queue->client_fd_queue[queue->rear] = client_fd;
+        queue->rear = (queue->rear + 1) % MAX_EVENTS;
+        pthread_cond_signal(&queue->cond);
+    }
+
+    pthread_mutex_unlock(&queue->mutex);
+}
+
+
+int dequeue_TaskQueue(TaskQueue* queue) {
+    pthread_mutex_lock(&queue->mutex);
+    while (queue->front == queue->rear) {
+        pthread_cond_wait(&queue->cond, &queue->mutex);
+    }
+    int client_fd = queue->client_fd_queue[queue->front];
+    queue->front = (queue->front + 1) % MAX_EVENTS;
+    pthread_mutex_unlock(&queue->mutex);
+    return client_fd;
+}
+
+void* worker_Thread(void* arg) {
+    struct Server* server = (struct Server*)arg; 
+    TaskQueue* queue = &(server->task_queue);   
+    
+    while (1) {
+        int client_fd = dequeue_TaskQueue(queue);
+        
+        if (client_fd == -1) {
+            break;
+        }
+        
+        handle_Client_Read(server, client_fd);
+    }
+    return NULL;
+}
+ 
+    
 
 void set_Non_Blocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
@@ -75,8 +144,120 @@ Server* init_Server(char* _addr, int _port) {
         close(server->server_fd);
         exit(EXIT_FAILURE);
     }
+
+    init_TaskQueue(&(server->task_queue));
+
     return server;
 }
+
+
+void start_Epoll_Server(Server* server) {
+    server->epoll_fd = epoll_create1(0);
+    if (server->epoll_fd == -1) {
+        perror("Error creating epoll instance");
+        exit(EXIT_FAILURE);
+    }
+
+    struct epoll_event ev, events[MAX_EVENTS];
+    ev.events = EPOLLIN | EPOLLET;
+    ev.data.fd = server->server_fd;
+
+    if (epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, server->server_fd, &ev) == -1) {
+        perror("Error adding server socket to epoll");
+        exit(EXIT_FAILURE);
+    }
+
+    set_Non_Blocking(server->server_fd);
+
+    pthread_t threads[THREAD_POOL_SIZE];
+    for (int i = 0; i < THREAD_POOL_SIZE; i++) {
+        if (pthread_create(&threads[i], NULL, worker_Thread, server) != 0) {
+            perror("Error creating thread");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    while (1) {
+        int nfds = epoll_wait(server->epoll_fd, events, MAX_EVENTS, -1);
+        if (nfds == -1) {
+            perror("Error during epoll_wait");
+            exit(EXIT_FAILURE);
+        }
+
+        for (int i = 0; i < nfds; i++) {
+            if (events[i].data.fd == server->server_fd) {
+                while (1) {
+                    Client* client = (Client*)malloc(sizeof(Client));
+                    if (!client) {
+                        perror("Error allocating client memory");
+                        continue;
+                    }
+
+                    client->client_size = sizeof(client->client_addr);
+                    client->client_fd = accept(server->server_fd,
+                                            (struct sockaddr*)&client->client_addr,
+                                            &client->client_size);
+                    if (client->client_fd < 0) {
+                        free(client);
+                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                            break; // All connections processed
+                        } else {
+                            perror("Can't accept connection");
+                        }
+                        continue;
+                    }
+
+                    printf("New client connected: FD=%d\n", client->client_fd);
+                    set_Non_Blocking(client->client_fd);
+
+                    ev.events = EPOLLIN | EPOLLET | EPOLLRDHUP; 
+                    ev.data.fd = client->client_fd;
+
+                    if (epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, client->client_fd, &ev) == -1) {
+                        perror("Error adding client socket to epoll");
+                        close(client->client_fd);
+                        free(client);
+                        continue;
+                    }
+                }
+            } else {
+                int client_fd = events[i].data.fd;
+                if (events[i].events & (EPOLLIN | EPOLLRDHUP)) {
+                    enqueue_TaskQueue(&(server->task_queue), client_fd); // Add only if necessary
+                }
+            }
+
+        }
+    }
+}
+
+void handle_Client_Read(Server* server, int client_fd) {
+    char buf[BUFSIZ / 2];
+    while (1) {
+        int bytesRead = read(client_fd, buf, sizeof(buf));
+        if (bytesRead == 0) {
+            printf("Client disconnected from server\n");
+            epoll_ctl(server->epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); 
+            close(client_fd);
+            break;
+        } else if (bytesRead < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                break;
+            } else {
+                epoll_ctl(server->epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); 
+                close(client_fd); 
+                break;
+            }
+        } else {
+            buf[bytesRead] = '\0';
+            printf("Received: %d bytes\n", bytesRead);
+            parse_received_json(server, buf, client_fd);
+        }
+    }
+}
+
+
+
 void listenClient(Server* server, Client* client) {
     if (listen(server->server_fd, 1) < 0) {
         perror("Error while listening");
@@ -143,7 +324,7 @@ Message* retrieve_Message(Server* server, const char* topic, const char* subtopi
 void handle_Publishing(Server* server, struct json_object* parsed_msg) {
     Message* msg = create_Message_From_Json(parsed_msg);
 	store_Message(server, msg);
-	print_Hashtable(server->messages);
+	//print_Hashtable(server->messages);
 }
 void handle_Subscription(Server* server, struct json_object* parsed_msg, int client_fd) {
     Message* sub = create_Subscribtion_From_Json(parsed_msg, client_fd);
@@ -198,97 +379,7 @@ void parse_received_json(Server* server, char* json_string, int client_fd) {
 
     json_tokener_free(tok);
 }
-void handle_Client_Read(Server* server, int client_fd) {
-    char buf[BUFSIZ / 2];
-    while (1) {
-        int bytesRead = read(client_fd, buf, sizeof(buf));
-        if (bytesRead == 0) {
-            printf("Client disconnected\n");
-            close(client_fd);
-            break;
-        } else if (bytesRead < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                break;
-            } else {
-                perror("Error reading from client");
-                close(client_fd);
-                break;
-            }
-        } else {
-            buf[bytesRead] = '\0';
-            printf("Received: %i\n", bytesRead);
-            parse_received_json(server, buf, client_fd);
-        }
-    }
-}
 
-void start_Epoll_Server(Server* server) {
-    int epoll_fd = epoll_create1(0);
-    if (epoll_fd == -1) {
-        perror("Error creating epoll instance");
-        exit(EXIT_FAILURE);
-    }
-
-    struct epoll_event ev, events[MAX_EVENTS];
-    ev.events = EPOLLIN | EPOLLET;
-    ev.data.fd = server->server_fd;
-
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server->server_fd, &ev) == -1) {
-        perror("Error adding server socket to epoll");
-        exit(EXIT_FAILURE);
-    }
-
-    set_Non_Blocking(server->server_fd);
-    while (1) {
-        int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
-        if (nfds == -1) {
-            perror("Error during epoll_wait");
-            exit(EXIT_FAILURE);
-        }
-
-        for (int i = 0; i < nfds; i++) {
-            if (events[i].data.fd == server->server_fd) {
-                while (1) {
-                    Client* client = (Client*)malloc(sizeof(Client));
-                    if (!client) {
-                        perror("Error allocating client memory");
-                        continue;
-                    }
-
-                    client->client_size = sizeof(client->client_addr);
-                    client->client_fd = accept(server->server_fd,
-                                               (struct sockaddr*)&client->client_addr,
-                                               &client->client_size);
-                    if (client->client_fd < 0) {
-                        free(client);
-                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                            // Toate conexiunile au fost acceptate.
-                            break;
-                        } else {
-                            perror("Can't accept connection");
-                        }
-                        continue;
-                    }
-
-                    printf("New client connected\n");
-                    set_Non_Blocking(client->client_fd);
-
-                    ev.events = EPOLLIN | EPOLLET;  // Edge Triggered pentru client.
-                    ev.data.fd = client->client_fd;
-
-                    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client->client_fd, &ev) == -1) {
-                        perror("Error adding client socket to epoll");
-                        close(client->client_fd);
-                        free(client);
-                        continue;
-                    }
-                }
-            } else {
-                handle_Client_Read(server, events[i].data.fd);
-            }
-        }
-    }
-}
 
 int main() {
     setbuf(stdout, NULL);
