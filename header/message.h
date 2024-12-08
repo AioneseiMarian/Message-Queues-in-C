@@ -24,15 +24,12 @@ typedef struct{
 
 typedef struct{
     MessageHeader header;
-    char* data;
+    void* data;
 }Message;
 
-typedef struct{
-    int subscribedID;
-    char type[20];
-}Request;
 
 json_object* create_Json_From_Message(MsgType type, char* topic, char* subtopic, int len, char* data);
 Message* create_Message_From_Json(json_object *j_obj);
+Message *create_Subscribtion_From_Json(json_object *json_msg, int client_fd);
 
 #endif

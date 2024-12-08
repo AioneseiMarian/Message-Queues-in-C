@@ -118,7 +118,12 @@ int main(void) {
         perror("");
         exit(-1);
     }
-    subscribe_to_topic("File operations", "file creation");
+    char topic[TOPICSIZ];
+    char subtopic[SUBTOPICSIZ];
+    strcpy(topic, "Programming");
+    strcpy(subtopic, "programming language");
+
+    subscribe_to_topic(topic, subtopic);
 
     close(client->server_fd);
 

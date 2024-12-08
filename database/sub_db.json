@@ -1,9 +1,7 @@
 [
     {
-      "type":1,
+      "type":0,
       "topic":"Programming",
-      "subtopic":"program output",
-      "length":11,
-      "data":"Hello world"
+      "subtopic":"program output"
     }
 ]

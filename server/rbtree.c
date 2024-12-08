@@ -8,8 +8,8 @@ RBTNode* create_Rbt_Node(RBTree* tree, const char* subtopic, void* data) {
         exit(-1);
     }
     strcpy(node->subtopic, subtopic);
-    node->messages = NULL;
-    push_Queue(&(node->messages), data);
+    node->queue = NULL;
+    push_Queue(&(node->queue), data);
     node->color = RED;
     node->parent = node->left = node->right = tree->NIL;
     return node;
@@ -117,7 +117,7 @@ void insert_Rbt(RBTree* tree, const char* subtopic, void* data) {
         else if (strcmp(z->subtopic, x->subtopic) > 0)
             x = x->right;
         else {
-            push_Queue(&(x->messages), data);
+            push_Queue(&(x->queue), data);
             free(z);
             return;
         }
@@ -143,7 +143,7 @@ Queue_Node* search_Rbt(RBTree* tree, const char* subtopic) {
     while (current != tree->NIL) {
         int cmp = strcmp(subtopic, current->subtopic);
         if (cmp == 0)
-            return current->messages;
+            return current->queue;
         else if (cmp < 0)
             current = current->left;
         else
@@ -276,7 +276,7 @@ void free_Rbt(RBTree* tree) {
         if (current->left == tree->NIL) {
             prev = current;
             current = current->right;
-			free_Queue(&(prev->messages));
+			free_Queue(&(prev->queue));
             free(prev);
         } else {
             RBTNode* predecessor = current->left;
@@ -301,7 +301,7 @@ void free_Rbt(RBTree* tree) {
 void print_Rbt_inorder(RBTree* tree, RBTNode* node) {
     if (node != tree->NIL) {
         print_Rbt_inorder(tree, node->left);
-		printf("\t\tTopic: %s\n\tMessages: %i\n\n", node->subtopic, get_Queue_Size(node->messages));
+		printf("\t\tTopic: %s\n\tMessages: %i\n\n", node->subtopic, get_Queue_Size(node->queue));
         print_Rbt_inorder(tree, node->right);
     }
 }

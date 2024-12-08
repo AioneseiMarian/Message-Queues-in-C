@@ -25,6 +25,7 @@ typedef struct Server {
     int server_fd;
     struct sockaddr_in server_addr;
     HashTable* messages;
+    HashTable* subscribtions;
 } Server;
 
 void set_Non_Blocking(int fd) {
@@ -62,6 +63,7 @@ Server* init_Server(char* _addr, int _port) {
     server->server_addr.sin_addr.s_addr = inet_addr(_addr);
 
     server->messages = create_Hashtable();
+    server->subscribtions = create_Hashtable();
 
     if (bind(server->server_fd, (struct sockaddr*)&(server->server_addr),
              sizeof(server->server_addr)) < 0) {
@@ -101,6 +103,11 @@ void close_Server(Server* server) {
 void store_Message(Server* server, Message* msg){
     insert_Hashtable(server->messages, msg->header.topic, msg->header.subtopic, msg);
 }
+
+void store_Subscribtion(Server *server, Message* sub){
+    insert_Hashtable(server->subscribtions, sub->header.topic, sub->header.subtopic, sub);
+}
+
 Message* retrieve_Message(Server* server, const char* topic, const char* subtopic){
 	unsigned int index = hash_Function(topic);
 	HashTableEntry* entry = server->messages->buckets[index];
@@ -138,11 +145,14 @@ void handle_Publishing(Server* server, struct json_object* parsed_msg) {
 	store_Message(server, msg);
 	print_Hashtable(server->messages);
 }
-void handle_Subscription(Server* server, struct json_object* parsed_msg) {
+void handle_Subscription(Server* server, struct json_object* parsed_msg, int client_fd) {
+    Message* sub = create_Subscribtion_From_Json(parsed_msg, client_fd);
+    store_Subscribtion(server, sub);
+    print_Hashtable(server->subscribtions);
 }
 void handle_Notification(Server* server, struct json_object* parsed_msg) {
 }
-void process_json_message(Server* server, json_object* parsed_msg) {
+void process_json_message(Server* server, json_object* parsed_msg, int client_fd) {
     MsgType msg_type;
     struct json_object* type;
     if (json_object_object_get_ex(parsed_msg, "type", &type)) {
@@ -153,16 +163,16 @@ void process_json_message(Server* server, json_object* parsed_msg) {
             handle_Publishing(server, parsed_msg);
             break;
         case MSG_SUBSCRIPTION:
-            handle_Subscription(server, parsed_msg);
+            handle_Subscription(server, parsed_msg, client_fd);
             break;
-        case MSG_NOTIFICATION:
+        case MSG_ALERT:
             handle_Notification(server, parsed_msg);
             break;
         default:
             fprintf(stderr, "Invalid message type");
     }
 }
-void parse_received_json(Server* server, char* json_string) {
+void parse_received_json(Server* server, char* json_string, int client_fd) {
     struct json_tokener* tok = json_tokener_new();
     struct json_object* json_msg;
     enum json_tokener_error jerr;
@@ -172,7 +182,7 @@ void parse_received_json(Server* server, char* json_string) {
         json_msg = json_tokener_parse_ex(tok, start, strlen(start));
         jerr = json_tokener_get_error(tok);
         if (jerr == json_tokener_success) {
-            process_json_message(server, json_tokener_parse(json_string));
+            process_json_message(server, json_tokener_parse(json_string), client_fd);
             start += (tok->char_offset);
             json_object_put(json_msg);
         } else if (jerr == json_tokener_continue) {
@@ -207,7 +217,7 @@ void handle_Client_Read(Server* server, int client_fd) {
         } else {
             buf[bytesRead] = '\0';
             printf("Received: %i\n", bytesRead);
-            parse_received_json(server, buf);
+            parse_received_json(server, buf, client_fd);
         }
     }
 }

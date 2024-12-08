@@ -26,7 +26,7 @@ typedef struct Publisher {
 void print_Message(Message *message) {
     printf("Type: %i\nTopic: %s\nSubtopic: %s\nLength: %i\nData: %s\n\n",
            message->header.msg_type, message->header.topic,
-           message->header.subtopic, message->header.len, message->data);
+           message->header.subtopic, message->header.len, (char*)message->data);
 }
 Publisher *init_Server(char *_addr, int _port) {
     Publisher *publisher = (Publisher *)malloc(sizeof(Publisher));

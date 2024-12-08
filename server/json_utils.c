@@ -36,3 +36,28 @@ Message *create_Message_From_Json(json_object *json_msg) {
 
 	return msg;
 }
+
+Message *create_Subscribtion_From_Json(json_object *json_msg, int client_fd){
+	Message *msg = malloc(sizeof(Message));
+	if(!msg){
+		perror("Failed to allocate message");
+		return NULL;
+	}
+	json_object* type_obj, *topic_obj, *subtopic_obj;
+
+	json_object_object_get_ex(json_msg, "type", &type_obj);
+	json_object_object_get_ex(json_msg, "topic", &topic_obj);
+	json_object_object_get_ex(json_msg, "subtopic", &subtopic_obj);
+	
+	msg->header.len = -1;
+	msg->header.msg_type = json_object_get_int(type_obj);
+	strncpy(msg->header.topic, json_object_get_string(topic_obj), TOPICSIZ - 1);
+	strncpy(msg->header.subtopic, json_object_get_string(subtopic_obj), SUBTOPICSIZ- 1);
+	
+	int *fd = malloc(sizeof(int));
+	*fd = client_fd;
+	msg->data = fd;
+	
+	return msg;
+}
+

@@ -12,7 +12,7 @@
 
 typedef struct RBTNode {
 	char subtopic[SUBTOPICSIZ];
-	Queue_Node* messages;
+	Queue_Node* queue;
 	int color;
 	struct RBTNode* parent;
 	struct RBTNode* left;
