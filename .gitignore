@@ -8,3 +8,5 @@ dbwriter
 
 # test files
 test*
+# tags file
+tags

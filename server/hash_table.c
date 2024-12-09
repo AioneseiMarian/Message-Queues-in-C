@@ -30,14 +30,15 @@ RBTree* search_Hashtable(HashTable* table, const char* topic) {
     }
     return NULL;
 }
-void insert_Hashtable(HashTable* table, const char* topic, const char* subtopic, void* data) {
+void insert_Hashtable(HashTable* table, const char* topic, const char* subtopic,
+                      void* data) {
     unsigned int index = hash_Function(topic);
     HashTableEntry* entry = table->buckets[index];
     HashTableEntry* prev = NULL;
 
     while (entry) {
         if (strcmp(entry->topic, topic) == 0) {
-			insert_Rbt(entry->tree, subtopic, data);
+            insert_Rbt(entry->tree, subtopic, data);
             return;
         }
         prev = entry;
@@ -50,7 +51,7 @@ void insert_Hashtable(HashTable* table, const char* topic, const char* subtopic,
     }
     strcpy(new_entry->topic, topic);
     new_entry->tree = create_Rbtree();
-	insert_Rbt(new_entry->tree, subtopic, data);
+    insert_Rbt(new_entry->tree, subtopic, data);
     new_entry->next = NULL;
     if (prev) {
         prev->next = new_entry;
@@ -104,4 +105,16 @@ void print_Hashtable(HashTable* table) {
             }
         }
     }
+}
+Queue_Node* get_Queue(HashTable* table, const char* topic, const char* subtopic) {
+    unsigned int index = hash_Function(topic);
+    HashTableEntry* entry = table->buckets[index];
+
+    while (entry) {
+        if (strcmp(entry->topic, topic) == 0) {
+            return search_Rbt(entry->tree, subtopic);
+        }
+        entry = entry->next;
+    }
+    return NULL;
 }

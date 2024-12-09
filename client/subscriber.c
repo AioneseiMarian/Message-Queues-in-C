@@ -19,7 +19,7 @@
 typedef struct {
     struct sockaddr_in server_addr;
     int server_fd;
-    int db_fd
+    int db_fd;
 } Client;
 
 Client* client;

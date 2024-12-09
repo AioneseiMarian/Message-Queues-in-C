@@ -1,6 +1,5 @@
 #include "../header/rbtree.h"
 
-
 RBTNode* create_Rbt_Node(RBTree* tree, const char* subtopic, void* data) {
     RBTNode* node = (struct RBTNode*)malloc(sizeof(RBTNode));
     if (node == NULL) {
@@ -34,8 +33,7 @@ void left_Rbt_Rotate(RBTree* tree, RBTNode* x) {
     RBTNode* y = x->right;
     x->right = y->left;
 
-    if (y->left != tree->NIL)
-        y->left->parent = x;
+    if (y->left != tree->NIL) y->left->parent = x;
     y->parent = x->parent;
 
     if (x->parent == tree->NIL)
@@ -52,8 +50,7 @@ void right_Rbt_Rotate(RBTree* tree, RBTNode* y) {
     RBTNode* x = y->left;
     y->left = x->right;
 
-    if (x->right != tree->NIL)
-        x->right->parent = y;
+    if (x->right != tree->NIL) x->right->parent = y;
 
     x->parent = y->parent;
 
@@ -170,8 +167,7 @@ void transplant_Rbt(RBTree* tree, RBTNode* u, RBTNode* v) {
     v->parent = u->parent;
 }
 RBTNode* minimum_Rbt(RBTree* tree, RBTNode* x) {
-    while (x->left != tree->NIL)
-        x = x->left;
+    while (x->left != tree->NIL) x = x->left;
     return x;
 }
 void delete_Rbt_Balance(RBTree* tree, RBTNode* x) {
@@ -263,8 +259,7 @@ void delete_Rbt(RBTree* tree, const char* subtopic) {
         y->color = z->color;
     }
 
-    if (y_original_color == BLACK)
-        delete_Rbt_Balance(tree, x);
+    if (y_original_color == BLACK) delete_Rbt_Balance(tree, x);
 
     free(z);
 }
@@ -276,11 +271,12 @@ void free_Rbt(RBTree* tree) {
         if (current->left == tree->NIL) {
             prev = current;
             current = current->right;
-			free_Queue(&(prev->queue));
+            free_Queue(&(prev->queue));
             free(prev);
         } else {
             RBTNode* predecessor = current->left;
-            while (predecessor->right != tree->NIL && predecessor->right != current) {
+            while (predecessor->right != tree->NIL &&
+                   predecessor->right != current) {
                 predecessor = predecessor->right;
             }
 
@@ -301,7 +297,8 @@ void free_Rbt(RBTree* tree) {
 void print_Rbt_inorder(RBTree* tree, RBTNode* node) {
     if (node != tree->NIL) {
         print_Rbt_inorder(tree, node->left);
-		printf("\t\tTopic: %s\n\tMessages: %i\n\n", node->subtopic, get_Queue_Size(node->queue));
+        printf("\t\tSubtopic: %s\n\t\tMessages: %i\n\n", node->subtopic,
+               get_Queue_Size(node->queue));
         print_Rbt_inorder(tree, node->right);
     }
 }

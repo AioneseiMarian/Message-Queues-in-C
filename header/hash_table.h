@@ -21,5 +21,6 @@ void insert_Hashtable(HashTable* table, const char* topic, const char* subtopic,
 void delete_Hashtable(HashTable* table, const char* topic);
 void free_Hashtable(HashTable* table);
 void print_Hashtable(HashTable* table);
+Queue_Node* get_Queue(HashTable* table, const char* topic, const char* subtopic);
 
 #endif 
