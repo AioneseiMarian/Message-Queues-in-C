@@ -1,4 +1,5 @@
 #include "../header/queues.h"
+#include "../header/message.h"
 
 void swapMsgs(Message* _msg1, Message* _msg2) {
     Message tmp = *_msg1;

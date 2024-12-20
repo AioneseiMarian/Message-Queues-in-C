@@ -21,13 +21,74 @@ typedef struct Client {
     int client_fd;
 } Client;
 
+typedef struct TaskQueue {
+    int client_fd_queue[MAX_EVENTS];
+    int front;
+    int rear;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+} TaskQueue;
+
 typedef struct Server {
     int server_fd;
     int epoll_fd;
     struct sockaddr_in server_addr;
     HashTable* messages;
     HashTable* subscribtions;
+    TaskQueue task_queue;
 } Server;
+
+void handle_Client_Read(Server* server, int client_fd);
+void parse_received_json(Server* server, char* json_string, int client_fd);
+
+
+void init_TaskQueue(TaskQueue* queue) {
+    queue->front = 0;
+    queue->rear = 0;
+    pthread_mutex_init(&queue->mutex, NULL);
+    pthread_cond_init(&queue->cond, NULL);
+}
+
+void enqueue_TaskQueue(TaskQueue* queue, int client_fd) {
+    pthread_mutex_lock(&queue->mutex);
+    if ((queue->rear + 1) % MAX_EVENTS == queue->front) {
+        printf("Task queue full! Client FD %d was not enqueued.\n", client_fd);
+    } else {
+        queue->client_fd_queue[queue->rear] = client_fd;
+        queue->rear = (queue->rear + 1) % MAX_EVENTS;
+        pthread_cond_signal(&queue->cond);
+    }
+    pthread_mutex_unlock(&queue->mutex);
+}
+
+
+int dequeue_TaskQueue(TaskQueue* queue) {
+    pthread_mutex_lock(&queue->mutex);
+    while (queue->front == queue->rear) {
+        pthread_cond_wait(&queue->cond, &queue->mutex);
+    }
+    int client_fd = queue->client_fd_queue[queue->front];
+    queue->front = (queue->front + 1) % MAX_EVENTS;
+    pthread_mutex_unlock(&queue->mutex);
+    return client_fd;
+}
+
+
+void* worker_Thread(void* arg) {
+    struct Server* server = (struct Server*)arg; 
+    TaskQueue* queue = &(server->task_queue);   
+    
+    while (1) {
+        int client_fd = dequeue_TaskQueue(queue);
+        
+        if (client_fd == -1) {
+            break;
+        }
+        
+        handle_Client_Read(server, client_fd);
+    }
+    return NULL;
+}
 
 void store_Message(Server* server, Message* msg) {
     insert_Hashtable(server->messages, msg->header.topic, msg->header.subtopic,
@@ -179,7 +240,18 @@ Server* init_Server(char* _addr, int _port) {
         close(server->server_fd);
         exit(EXIT_FAILURE);
     }
+
+    init_TaskQueue(&(server->task_queue));
     return server;
+}
+
+void *debug_print(void* arg)
+{
+    sleep(4);
+    Server* server = (struct Server*)arg;
+
+    printf("\n\nDebug print:\n");
+    print_Hashtable(server->messages);
 }
 
 void start_Epoll_Server(Server* server) {
@@ -200,6 +272,17 @@ void start_Epoll_Server(Server* server) {
     }
 
     set_Non_Blocking(server->server_fd);
+
+    pthread_t threads[THREAD_POOL_SIZE];
+    for (int i = 0; i < THREAD_POOL_SIZE; i++) {
+        if (pthread_create(&threads[i], NULL, worker_Thread, server) != 0) {
+            perror("Error creating thread");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    pthread_t debug_thread;
+    pthread_create(&debug_thread, NULL, debug_print, server);
 
     while (1) {
         int nfds = epoll_wait(server->epoll_fd, events, MAX_EVENTS, -1);
@@ -246,7 +329,10 @@ void start_Epoll_Server(Server* server) {
                     }
                 }
             } else {
-                handle_Client_Read(server, events[i].data.fd);
+                int client_fd = events[i].data.fd;
+                if (events[i].events & (EPOLLIN)) {
+                    enqueue_TaskQueue(&(server->task_queue), client_fd); // Add only if necessary
+                }
             }
         }
     }

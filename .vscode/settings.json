@@ -6,6 +6,7 @@
         "message.h": "c",
         "vector": "c",
         "string.h": "c",
-        "json.h": "c"
+        "json.h": "c",
+        "hash_table.h": "c"
     }
 }
