@@ -2,6 +2,7 @@
 #define HASHTABLE_H
 
 #include "rbtree.h"
+#include <pthread.h>
 #define HASH_TABLE_SIZE 128
 
 typedef struct HashTableEntry{
@@ -13,6 +14,8 @@ typedef struct HashTableEntry{
 typedef struct HashTable{
 	HashTableEntry* buckets[HASH_TABLE_SIZE];
 }HashTable;
+
+
 
 HashTable* create_Hashtable();
 unsigned int hash_Function(const char* key);

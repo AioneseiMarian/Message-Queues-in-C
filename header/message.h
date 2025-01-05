@@ -5,6 +5,7 @@
 #define SERVER_PORT 8080
 #define TOPICSIZ 40
 #define SUBTOPICSIZ 40
+#define INTERESTSIZ 40
 
 
 #include <json-c/json.h>
@@ -26,6 +27,14 @@ typedef struct{
     MessageHeader header;
     void* data;
 }Message;
+
+typedef struct{
+	int client_fd;
+	int len;
+	char topic[TOPICSIZ];
+	char subtopic[SUBTOPICSIZ];
+	char interest[INTERESTSIZ];
+}Subscribtion;
 
 
 json_object* create_Json_From_Message(MsgType type, char* topic, char* subtopic, int len, char* data);

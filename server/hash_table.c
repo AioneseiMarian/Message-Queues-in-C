@@ -1,5 +1,7 @@
 #include "../header/hash_table.h"
 
+pthread_mutex_t table_mutex;
+
 HashTable* create_Hashtable() {
     HashTable* table = (HashTable*)malloc(sizeof(HashTable));
     if (!table) {
@@ -22,12 +24,15 @@ unsigned int hash_Function(const char* key) {
 RBTree* search_Hashtable(HashTable* table, const char* topic) {
     unsigned int index = hash_Function(topic);
     HashTableEntry* entry = table->buckets[index];
+    pthread_mutex_lock(&table_mutex);
     while (entry) {
         if (strcmp(entry->topic, topic) == 0) {
+            pthread_mutex_unlock(&table_mutex);
             return entry->tree;
         }
         entry = entry->next;
     }
+    pthread_mutex_unlock(&table_mutex);
     return NULL;
 }
 void insert_Hashtable(HashTable* table, const char* topic, const char* subtopic,
@@ -36,9 +41,11 @@ void insert_Hashtable(HashTable* table, const char* topic, const char* subtopic,
     HashTableEntry* entry = table->buckets[index];
     HashTableEntry* prev = NULL;
 
+    pthread_mutex_lock(&table_mutex);
     while (entry) {
         if (strcmp(entry->topic, topic) == 0) {
             insert_Rbt(entry->tree, subtopic, data);
+            pthread_mutex_unlock(&table_mutex);
             return;
         }
         prev = entry;
@@ -58,12 +65,14 @@ void insert_Hashtable(HashTable* table, const char* topic, const char* subtopic,
     } else {
         table->buckets[index] = new_entry;
     }
+    pthread_mutex_unlock(&table_mutex);
 }
 void delete_Hashtable(HashTable* table, const char* topic) {
     unsigned int index = hash_Function(topic);
     HashTableEntry* entry = table->buckets[index];
     HashTableEntry* prev = NULL;
 
+    pthread_mutex_lock(&table_mutex);
     while (entry) {
         if (strcmp(entry->topic, topic) == 0) {
             if (prev) {
@@ -74,14 +83,17 @@ void delete_Hashtable(HashTable* table, const char* topic) {
             free_Rbt(entry->tree);
             free(entry);
             /* printf("Topic '%s' deleted from the hash table.\n", topic); */
+            pthread_mutex_unlock(&table_mutex);
             return;
         }
         prev = entry;
         entry = entry->next;
     }
+    pthread_mutex_unlock(&table_mutex);
     printf("Topic '%s' is not found in the hash table.\n", topic);
 }
 void free_Hashtable(HashTable* table) {
+    pthread_mutex_lock(&table_mutex);
     for (int i = 0; i < HASH_TABLE_SIZE; ++i) {
         HashTableEntry* entry = table->buckets[i];
         while (entry) {
@@ -92,8 +104,10 @@ void free_Hashtable(HashTable* table) {
         }
     }
     free(table);
+    pthread_mutex_unlock(&table_mutex);
 }
 void print_Hashtable(HashTable* table) {
+    pthread_mutex_lock(&table_mutex);
     for (int i = 0; i < HASH_TABLE_SIZE; ++i) {
         HashTableEntry* entry = table->buckets[i];
         if (entry) {
@@ -105,16 +119,21 @@ void print_Hashtable(HashTable* table) {
             }
         }
     }
+    pthread_mutex_unlock(&table_mutex);
 }
 Queue_Node* get_Queue(HashTable* table, const char* topic, const char* subtopic) {
     unsigned int index = hash_Function(topic);
     HashTableEntry* entry = table->buckets[index];
 
+    pthread_mutex_lock(&table_mutex);
     while (entry) {
         if (strcmp(entry->topic, topic) == 0) {
-            return search_Rbt(entry->tree, subtopic);
+            Queue_Node* queue = search_Rbt(entry->tree, subtopic);
+            pthread_mutex_unlock(&table_mutex);
+            return queue;
         }
         entry = entry->next;
     }
+    pthread_mutex_unlock(&table_mutex);
     return NULL;
 }

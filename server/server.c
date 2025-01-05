@@ -95,9 +95,9 @@ void store_Message(Server* server, Message* msg) {
                      msg);
 }
 
-void store_Subscribtion(Server* server, Message* sub) {
-    insert_Hashtable(server->subscribtions, sub->header.topic,
-                     sub->header.subtopic, sub);
+void store_Subscribtion(Server* server, Subscribtion* sub) {
+    insert_Hashtable(server->subscribtions, sub->topic,
+                     sub->subtopic, sub);
 }
 
 void handle_Publishing(Server* server, struct json_object* parsed_msg) {

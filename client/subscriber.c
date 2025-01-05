@@ -54,6 +54,7 @@ int init_client() {
 
 void fetch_from_db(Client *subscriber, const char* file_name) 
 {
+    printf("Opening file %s\n", file_name);
     subscriber->db_fd = open(file_name, O_RDONLY);
     if (subscriber->db_fd == -1) {
         perror("Error opening messages_queue file");
@@ -62,18 +63,29 @@ void fetch_from_db(Client *subscriber, const char* file_name)
 
     size_t file_length = lseek(subscriber->db_fd, 0, SEEK_END);
     lseek(subscriber->db_fd, 0, SEEK_SET);
+
+    printf("Allocating memory for file\n");
+    
     char *buffer = (char *)malloc((file_length + 1) * sizeof(char));
     if (buffer == NULL) {
         perror("Error allocating memory");
         exit(EXIT_FAILURE);
     }
+
+    printf("Reading from file\n");
     if (read(subscriber->db_fd, buffer, file_length) < 0) {
         perror("Error reading from messages_queue database");
         exit(EXIT_FAILURE);
     }
     close(subscriber->db_fd);
+    printf("\nPrinting file content\n");
+    printf("%s\n\n\n", buffer);
 
+    printf("Parsing JSON string\n");
     struct json_object *parsed_array = json_tokener_parse(buffer);
+    size_t json_length = json_object_array_length(parsed_array);
+    printf("JSON array length: %zd\n", json_length);
+
     free(buffer);
     if (!parsed_array ||
         json_object_get_type(parsed_array) != json_type_array) {
@@ -81,15 +93,18 @@ void fetch_from_db(Client *subscriber, const char* file_name)
         exit(EXIT_FAILURE);
     }
 
-    size_t array_length = json_object_array_length(parsed_array);
-    for (int i = 0; i < array_length; ++i) {
-        struct json_object *message =
-            json_object_array_get_idx(parsed_array, i);
-        Message *msg = create_Message_From_Json(message);
-        if(!msg){
-            perror("Empty message. Can't push to queue");
-        }
-    }
+
+    // printf("Iterating through JSON array\n");
+    // size_t array_length = json_object_array_length(parsed_array);
+    // for (int i = 0; i < array_length; ++i) {
+    //     printf("Parsing message %d\n", i);
+    //     struct json_object *message =
+    //         json_object_array_get_idx(parsed_array, i);
+
+    // }
+
+    printf("Printing JSON object\n");
+    printf("%s\n", json_object_to_json_string(parsed_array));    
 }
 
 
@@ -118,12 +133,16 @@ int main(void) {
         perror("");
         exit(-1);
     }
-    char topic[TOPICSIZ];
-    char subtopic[SUBTOPICSIZ];
-    strcpy(topic, "Programming");
-    strcpy(subtopic, "programming language");
+    // char topic[TOPICSIZ];
+    // char subtopic[SUBTOPICSIZ];
+    // strcpy(topic, "Programming");
+    // strcpy(subtopic, "programming language");
 
-    subscribe_to_topic(topic, subtopic);
+    // subscribe_to_topic(topic, subtopic);
+    char filename[100]; 
+    strcpy(filename, MSGFILENAME);
+    fetch_from_db(client, filename);
+
 
     close(client->server_fd);
 
