@@ -23,7 +23,7 @@ void push_Queue(Queue_Node** head, void* data) {
     if (*head == NULL) {
         *head = node;
     } else {
-        Queue_Node* current = *head;
+        Queue_Node* current = *head;   
         while (current->next_node != NULL) {
             current = current->next_node;
         }

@@ -24,7 +24,7 @@ typedef struct {
 
 Client* client;
 
-
+void subscribe_to_topic(json_object* parsed_json);
 
 int init_client() {
     client = malloc(sizeof(Client));
@@ -52,7 +52,7 @@ int init_client() {
 }
 
 
-void fetch_from_db(Client *subscriber, const char* file_name) 
+struct json_object *fetch_from_db(Client *subscriber, const char* file_name) 
 {
     printf("Opening file %s\n", file_name);
     subscriber->db_fd = open(file_name, O_RDONLY);
@@ -94,28 +94,26 @@ void fetch_from_db(Client *subscriber, const char* file_name)
     }
 
 
-    // printf("Iterating through JSON array\n");
-    // size_t array_length = json_object_array_length(parsed_array);
-    // for (int i = 0; i < array_length; ++i) {
-    //     printf("Parsing message %d\n", i);
-    //     struct json_object *message =
-    //         json_object_array_get_idx(parsed_array, i);
-
-    // }
+    printf("Iterating through JSON array\n");
+    size_t array_length = json_object_array_length(parsed_array);
+    for (int i = 0; i < array_length; ++i) {
+        //printf("Parsing message %d\n", i);
+        struct json_object *message =
+            json_object_array_get_idx(parsed_array, i);
+        //printf("%s\n",json_object_to_json_string(message));
+        subscribe_to_topic(message);
+    }
 
     printf("Printing JSON object\n");
-    printf("%s\n", json_object_to_json_string(parsed_array));    
+    printf("%s\n", json_object_to_json_string(parsed_array));  
+
+    return parsed_array;  
 }
 
 
-void subscribe_to_topic(char topic[TOPICSIZ], char subtopic[SUBTOPICSIZ])
+void subscribe_to_topic(json_object* parsed_json)
 {
-
-    json_object *json_message = create_Json_From_Message(
-        MSG_SUBSCRIPTION, topic,
-        subtopic, 5, "NULL");
-
-	const char* json_string = json_object_to_json_string(json_message);
+	const char* json_string = json_object_to_json_string(parsed_json);
     printf("%s\n", json_string);
 	size_t json_length = strlen(json_string);
 	printf("About to send\n");
@@ -125,7 +123,7 @@ void subscribe_to_topic(char topic[TOPICSIZ], char subtopic[SUBTOPICSIZ])
 	}else{
 		printf("Sent %zd bytes successfully.\n", sent_bytes);
 	}
-	json_object_put(json_message);
+	json_object_put(parsed_json);
 }
 
 int main(void) {

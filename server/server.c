@@ -38,6 +38,8 @@ typedef struct Server {
     TaskQueue task_queue;
 } Server;
 
+extern pthread_mutex_t table_mutex;
+
 void handle_Client_Read(Server* server, int client_fd);
 void parse_received_json(Server* server, char* json_string, int client_fd);
 
@@ -100,6 +102,54 @@ void store_Subscribtion(Server* server, Subscribtion* sub) {
                      sub->subtopic, sub);
 }
 
+void aux_send_messages_from_queues(Server* server, Queue_Node* queue){
+    Message* msg;
+    while(queue != NULL)
+    {
+        msg = queue->data;
+
+        //TODO sendd message
+
+        queue = queue->next_node;
+    }
+}
+
+void send_messages_to_subs(Server* server){
+    pthread_mutex_lock(&table_mutex);
+
+    for (int i = 0; i < HASH_TABLE_SIZE; ++i) {
+        HashTableEntry* entry = server->messages->buckets[i];
+        if (entry) {
+            printf("Sending bucket %d:\n", i);
+            while (entry) {
+                printf("\tSending topic: %s\n", entry->topic);
+
+                Queue_Node* aux_queue = NULL;  // Initialize to NULL as per push_Queue's expectation
+                
+                push_Queue(&aux_queue, (void*)entry->tree->root);
+
+                while (aux_queue != NULL) {  // While queue is not empty
+                    RBTNode* tree_node = (RBTNode*)pop_Queue(&aux_queue);
+                    if (tree_node && tree_node->queue) {
+                        aux_send_messages_from_queues(server, tree_node->queue);    //send messages from rbtree node(queue)
+                    }
+
+                    if(tree_node->left != entry->tree->NIL)
+                        push_Queue(&aux_queue, tree_node->left);
+                    
+                    if(tree_node->right != entry->tree->NIL)
+                        push_Queue(&aux_queue, tree_node->right);
+                }
+                free_Queue(&aux_queue);
+                entry = entry->next;
+            }
+        }
+    }
+
+    pthread_mutex_unlock(&table_mutex);
+}
+
+
 void handle_Publishing(Server* server, struct json_object* parsed_msg) {
     Message* msg = create_Message_From_Json(parsed_msg);
 	printf("About to store a message with topic %s and subtopic %s\n\n", msg->header.topic, msg->header.subtopic);
@@ -108,7 +158,7 @@ void handle_Publishing(Server* server, struct json_object* parsed_msg) {
 }
 void handle_Subscription(Server* server, struct json_object* parsed_msg,
                          int client_fd) {
-    Message* sub = create_Subscribtion_From_Json(parsed_msg, client_fd);
+    Subscribtion* sub = create_Subscribtion_From_Json(parsed_msg, client_fd);
     store_Subscribtion(server, sub);
     print_Hashtable(server->subscribtions);
 }
@@ -130,7 +180,7 @@ void process_json_message(Server* server, json_object* parsed_msg, int client_fd
             handle_Notification(server, parsed_msg);
             break;
         default:
-            fprintf(stderr, "Invalid message type");
+            fprintf(stderr, "Invalid message type: %d\n", msg_type);
     }
 }
 void parse_received_json(Server* server, char* json_string, int client_fd) {
@@ -251,7 +301,7 @@ void *debug_print(void* arg)
     Server* server = (struct Server*)arg;
 
     printf("\n\nDebug print:\n");
-    print_Hashtable(server->messages);
+    print_Hashtable(server->subscribtions);
 }
 
 void start_Epoll_Server(Server* server) {
