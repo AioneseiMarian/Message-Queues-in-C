@@ -37,6 +37,7 @@ typedef struct{
 	char subtopic[SUBTOPICSIZ];
 	char interest[INTERESTSIZ];
 	char new;							//Same as for messages, if it's new sub, we send him all messages, if not, we only send him the new ones.
+	char has_interest;
 }Subscribtion;
 
 

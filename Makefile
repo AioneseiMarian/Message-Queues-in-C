@@ -1,5 +1,5 @@
-LDFLAGS = -ljson-c
-SOURCE = server/queue.c server/rbtree.c server/hash_table.c server/json_utils.c
+LDFLAGS = -ljson-c -lpthread
+SOURCE = server/queue.c server/rbtree.c server/hash_table.c server/json_utils.c server/message_send.c
 .PHONY: all
 all:: client/publisher.c server/server.c client/dbwriter.c client/subscriber.c
 	make clean
@@ -13,7 +13,7 @@ subscriber: client/subscriber.c
 	cc -Wall -g client/subscriber.c ${SOURCE} -o subscriber ${LDFLAGS}
 .PHONY: server
 server:: server/server.c
-	cc server/server.c $(SOURCE) -o serv $(LDFLAGS)
+	cc -fsanitize=thread -g server/server.c $(SOURCE) -o serv $(LDFLAGS)
 .PHONY: db
 db: client/dbwriter.c
 	cc client/dbwriter.c $(SOURCE) -o dbwriter $(LDFLAGS)

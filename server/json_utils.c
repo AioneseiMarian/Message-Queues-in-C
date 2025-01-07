@@ -61,6 +61,11 @@ Subscribtion *create_Subscribtion_From_Json(json_object *json_msg, int client_fd
 	json_object_object_get_ex(json_msg, "interest", &interest_obj);
 	json_object_object_get_ex(json_msg, "size", &size_obj);
 
+	if(interest_obj == NULL){
+		sub->has_interest = 0;
+	}else{
+		sub->has_interest = 1;
+	}
 
 	sub->client_fd = client_fd;
 	sub->len = json_object_get_int(size_obj);

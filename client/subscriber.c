@@ -103,9 +103,7 @@ struct json_object *fetch_from_db(Client *subscriber, const char* file_name)
         //printf("%s\n",json_object_to_json_string(message));
         subscribe_to_topic(message);
     }
-
-    printf("Printing JSON object\n");
-    printf("%s\n", json_object_to_json_string(parsed_array));  
+ 
 
     return parsed_array;  
 }
@@ -140,6 +138,20 @@ int main(void) {
     char filename[100]; 
     strcpy(filename, MSGFILENAME);
     fetch_from_db(client, filename);
+    printf("Subscribtions sent\n");
+
+    char buf[BUFSIZ / 2];
+    while(1) {
+        sleep(1);
+        ssize_t bytesRead = recv(client->server_fd, buf, sizeof(buf), 0);
+        if (bytesRead < 0) {
+            perror("Error reading from server");
+            exit(EXIT_FAILURE);
+        }
+        buf[bytesRead] = '\0';
+        printf("Received: %zd bytes\n", bytesRead);
+        printf("The data: %s\n\n", buf);
+    }
 
 
     close(client->server_fd);

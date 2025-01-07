@@ -1,47 +1,7 @@
 #define _GNU_SOURCE
 
-#include <arpa/inet.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/epoll.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
-#include "../header/hash_table.h"
-#define MAX_EVENTS 64
-#define INITIALPUBQUEUECAP 4
-#define THREAD_POOL_SIZE 4
-
-typedef struct Client {
-    struct sockaddr_in client_addr;
-    int client_fd;
-} Client;
-
-typedef struct TaskQueue {
-    int client_fd_queue[MAX_EVENTS];
-    int front;
-    int rear;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-} TaskQueue;
-
-typedef struct Server {
-    int server_fd;
-    int epoll_fd;
-    struct sockaddr_in server_addr;
-    HashTable* messages;
-    HashTable* subscribtions;
-    TaskQueue task_queue;
-} Server;
-
-extern pthread_mutex_t table_mutex;
-
-void handle_Client_Read(Server* server, int client_fd);
-void parse_received_json(Server* server, char* json_string, int client_fd);
+#include "../header/server.h"
+#include "../header/message_send.h"
 
 
 void init_TaskQueue(TaskQueue* queue) {
@@ -75,6 +35,15 @@ int dequeue_TaskQueue(TaskQueue* queue) {
     return client_fd;
 }
 
+void* thread_send_messages(void* sv)
+{
+    Server* server = (struct Server*)sv;
+    while(1)
+    {   
+        sleep(5);
+        send_messages_to_subs(server);
+    }
+}
 
 void* worker_Thread(void* arg) {
     struct Server* server = (struct Server*)arg; 
@@ -102,65 +71,18 @@ void store_Subscribtion(Server* server, Subscribtion* sub) {
                      sub->subtopic, sub);
 }
 
-void aux_send_messages_from_queues(Server* server, Queue_Node* queue){
-    Message* msg;
-    while(queue != NULL)
-    {
-        msg = queue->data;
-
-        //TODO sendd message
-
-        queue = queue->next_node;
-    }
-}
-
-void send_messages_to_subs(Server* server){
-    pthread_mutex_lock(&table_mutex);
-
-    for (int i = 0; i < HASH_TABLE_SIZE; ++i) {
-        HashTableEntry* entry = server->messages->buckets[i];
-        if (entry) {
-            printf("Sending bucket %d:\n", i);
-            while (entry) {
-                printf("\tSending topic: %s\n", entry->topic);
-
-                Queue_Node* aux_queue = NULL;  // Initialize to NULL as per push_Queue's expectation
-                
-                push_Queue(&aux_queue, (void*)entry->tree->root);
-
-                while (aux_queue != NULL) {  // While queue is not empty
-                    RBTNode* tree_node = (RBTNode*)pop_Queue(&aux_queue);
-                    if (tree_node && tree_node->queue) {
-                        aux_send_messages_from_queues(server, tree_node->queue);    //send messages from rbtree node(queue)
-                    }
-
-                    if(tree_node->left != entry->tree->NIL)
-                        push_Queue(&aux_queue, tree_node->left);
-                    
-                    if(tree_node->right != entry->tree->NIL)
-                        push_Queue(&aux_queue, tree_node->right);
-                }
-                free_Queue(&aux_queue);
-                entry = entry->next;
-            }
-        }
-    }
-
-    pthread_mutex_unlock(&table_mutex);
-}
-
 
 void handle_Publishing(Server* server, struct json_object* parsed_msg) {
     Message* msg = create_Message_From_Json(parsed_msg);
 	printf("About to store a message with topic %s and subtopic %s\n\n", msg->header.topic, msg->header.subtopic);
     store_Message(server, msg);
-    print_Hashtable(server->messages);
+    // print_Hashtable(server->messages);
 }
 void handle_Subscription(Server* server, struct json_object* parsed_msg,
                          int client_fd) {
     Subscribtion* sub = create_Subscribtion_From_Json(parsed_msg, client_fd);
     store_Subscribtion(server, sub);
-    print_Hashtable(server->subscribtions);
+    // print_Hashtable(server->subscribtions);
 }
 void handle_Notification(Server* server, struct json_object* parsed_msg) {}
 void process_json_message(Server* server, json_object* parsed_msg, int client_fd) {
@@ -291,6 +213,12 @@ Server* init_Server(char* _addr, int _port) {
         exit(EXIT_FAILURE);
     }
 
+    pthread_t thread;
+    if(pthread_create(&thread, NULL, thread_send_messages, server) != 0){
+        perror("Error creating send message thread");
+        exit(EXIT_FAILURE);
+    }
+
     init_TaskQueue(&(server->task_queue));
     return server;
 }
@@ -323,16 +251,14 @@ void start_Epoll_Server(Server* server) {
 
     set_Non_Blocking(server->server_fd);
 
-    pthread_t threads[THREAD_POOL_SIZE];
-    for (int i = 0; i < THREAD_POOL_SIZE; i++) {
-        if (pthread_create(&threads[i], NULL, worker_Thread, server) != 0) {
-            perror("Error creating thread");
-            exit(EXIT_FAILURE);
-        }
+    pthread_t recv_thread;
+    if (pthread_create(&recv_thread, NULL, worker_Thread, server) != 0) {
+        perror("Error creating thread");
+        exit(EXIT_FAILURE);
     }
 
-    pthread_t debug_thread;
-    pthread_create(&debug_thread, NULL, debug_print, server);
+    // pthread_t debug_thread;
+    // pthread_create(&debug_thread, NULL, debug_print, server);
 
     while (1) {
         int nfds = epoll_wait(server->epoll_fd, events, MAX_EVENTS, -1);

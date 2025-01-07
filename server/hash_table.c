@@ -25,14 +25,18 @@ RBTree* search_Hashtable(HashTable* table, const char* topic) {
     unsigned int index = hash_Function(topic);
     HashTableEntry* entry = table->buckets[index];
     pthread_mutex_lock(&table_mutex);
+    printf("Mutex locked in %s\n", __func__);
+
     while (entry) {
         if (strcmp(entry->topic, topic) == 0) {
             pthread_mutex_unlock(&table_mutex);
+            printf("Mutex unlocked in %s\n", __func__);
             return entry->tree;
         }
         entry = entry->next;
     }
     pthread_mutex_unlock(&table_mutex);
+    printf("Mutex unlocked in %s\n", __func__);
     return NULL;
 }
 void insert_Hashtable(HashTable* table, const char* topic, const char* subtopic,
@@ -42,10 +46,12 @@ void insert_Hashtable(HashTable* table, const char* topic, const char* subtopic,
     HashTableEntry* prev = NULL;
 
     pthread_mutex_lock(&table_mutex);
+    printf("Mutex locked in %s\n", __func__);
     while (entry) {
         if (strcmp(entry->topic, topic) == 0) {
             insert_Rbt(entry->tree, subtopic, data);
             pthread_mutex_unlock(&table_mutex);
+            printf("Mutex unlocked in %s\n", __func__);
             return;
         }
         prev = entry;
@@ -66,6 +72,7 @@ void insert_Hashtable(HashTable* table, const char* topic, const char* subtopic,
         table->buckets[index] = new_entry;
     }
     pthread_mutex_unlock(&table_mutex);
+    printf("Mutex unlocked in %s\n", __func__);
 }
 void delete_Hashtable(HashTable* table, const char* topic) {
     unsigned int index = hash_Function(topic);
@@ -73,6 +80,7 @@ void delete_Hashtable(HashTable* table, const char* topic) {
     HashTableEntry* prev = NULL;
 
     pthread_mutex_lock(&table_mutex);
+    printf("Mutex locked in %s\n", __func__);
     while (entry) {
         if (strcmp(entry->topic, topic) == 0) {
             if (prev) {
@@ -84,16 +92,19 @@ void delete_Hashtable(HashTable* table, const char* topic) {
             free(entry);
             /* printf("Topic '%s' deleted from the hash table.\n", topic); */
             pthread_mutex_unlock(&table_mutex);
+            printf("Mutex unlocked in %s\n", __func__);
             return;
         }
         prev = entry;
         entry = entry->next;
     }
     pthread_mutex_unlock(&table_mutex);
+    printf("Mutex unlocked in %s\n", __func__);
     printf("Topic '%s' is not found in the hash table.\n", topic);
 }
 void free_Hashtable(HashTable* table) {
     pthread_mutex_lock(&table_mutex);
+    printf("Mutex locked in %s\n", __func__);
     for (int i = 0; i < HASH_TABLE_SIZE; ++i) {
         HashTableEntry* entry = table->buckets[i];
         while (entry) {
@@ -105,9 +116,11 @@ void free_Hashtable(HashTable* table) {
     }
     free(table);
     pthread_mutex_unlock(&table_mutex);
+    printf("Mutex unlocked in %s\n", __func__);
 }
 void print_Hashtable(HashTable* table) {
     pthread_mutex_lock(&table_mutex);
+    printf("Mutex locked in %s\n", __func__);
     for (int i = 0; i < HASH_TABLE_SIZE; ++i) {
         HashTableEntry* entry = table->buckets[i];
         if (entry) {
@@ -120,20 +133,26 @@ void print_Hashtable(HashTable* table) {
         }
     }
     pthread_mutex_unlock(&table_mutex);
+    printf("Mutex unlocked in %s\n", __func__);
 }
 Queue_Node* get_Queue(HashTable* table, const char* topic, const char* subtopic) {
+    printf("Searching for topic %s and subtopic %s\n", topic, subtopic);
     unsigned int index = hash_Function(topic);
     HashTableEntry* entry = table->buckets[index];
 
-    pthread_mutex_lock(&table_mutex);
+    // pthread_mutex_lock(&table_mutex);
+    // printf("Mutex locked in %s\n", __func__);
+    printf("\nGetting queue for topic %s and subtopic %s\n\n", topic, subtopic);
     while (entry) {
         if (strcmp(entry->topic, topic) == 0) {
             Queue_Node* queue = search_Rbt(entry->tree, subtopic);
-            pthread_mutex_unlock(&table_mutex);
+            // pthread_mutex_unlock(&table_mutex);
+            // printf("Mutex unlocked in %s\n", __func__);
             return queue;
         }
         entry = entry->next;
     }
-    pthread_mutex_unlock(&table_mutex);
+    // pthread_mutex_unlock(&table_mutex); 
+    // printf("Mutex unlocked in %s\n", __func__);
     return NULL;
 }

@@ -3,6 +3,9 @@
         "array": "c",
         "string": "c",
         "string_view": "c",
-        "span": "c"
+        "span": "c",
+        "hash_table.h": "c",
+        "fcntl.h": "c",
+        "message_send.h": "c"
     }
 }
