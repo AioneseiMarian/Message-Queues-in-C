@@ -65,14 +65,21 @@ int get_Queue_Size(Queue_Node* head) {
     return size;
 }
 
-Client* return_Client_from_Queue(Queue_Node* head, int client_fd) {
-    Queue_Node* current = head;
+Client* return_Client_from_Queue(Queue_Node** head, int client_fd) {
+    Queue_Node* current = *head;
+    Queue_Node* prev = NULL;
     while (current != NULL) {
         Client* client = (Client*)current->data;
         if (client->client_fd == client_fd) {
+            if (prev == NULL) {
+                *head = current->next_node;
+            } else {
+                prev->next_node = current->next_node;
+            }
             return client;
         }
         current = current->next_node;
+        prev = current;
     }
     return NULL;
 }

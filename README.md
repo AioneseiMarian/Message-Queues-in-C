@@ -9,5 +9,4 @@
     - Server sends message of interests when getting one
 - one thread for handling subscribers, one for publishers
 
-- modify Client so it isn't dynammic allocated
 

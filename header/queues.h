@@ -17,6 +17,6 @@ int get_Queue_Size(Queue_Node* head);
 
 struct Client;
 
-struct Client* return_Client_from_Queue(Queue_Node* head, int client_fd); //used ONLY for closing all connections at shutdown
+struct Client* return_Client_from_Queue(Queue_Node** head, int client_fd); //used ONLY for closing all connections at shutdown
 
 #endif

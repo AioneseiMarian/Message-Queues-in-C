@@ -11,7 +11,9 @@ pthread_t thread_send_msg;
 
 Server* global_server;              //for deallocating memory at shutdown
 
-Queue_Node *clients_fd = NULL;      //for closing all connections at shutdown
+pthread_mutex_t client_queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+Queue_Node *clients_fd_queue = NULL;      //for closing all connections at shutdown
 
 
 void sigint_handler(int sig) {
@@ -180,10 +182,12 @@ void handle_Client_Read(Server* server, int client_fd) {
         int bytesRead = read(client_fd, buf, sizeof(buf));
         if (bytesRead == 0) {
             printf("Client disconnected from server\n");
-            Client* client = return_Client_from_Queue(clients_fd, client_fd);
+            pthread_mutex_lock(&client_queue_mutex);
+            Client* client = return_Client_from_Queue(&clients_fd_queue, client_fd);
             if(client != NULL){
                 free(client);
             }
+            pthread_mutex_unlock(&client_queue_mutex);
             epoll_ctl(server->epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); 
             close(client_fd);
             break;
@@ -191,7 +195,7 @@ void handle_Client_Read(Server* server, int client_fd) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 break;
             } else {
-                Client* client = return_Client_from_Queue(clients_fd, client_fd);
+                Client* client = return_Client_from_Queue(&clients_fd_queue, client_fd);
                 if(client != NULL){
                     free(client);
                 }
@@ -288,7 +292,7 @@ void close_Server(Server* server) {
     close(server->epoll_fd);
     close(server->server_fd);
 
-    free_Queue(&clients_fd);
+    free_Queue(&clients_fd_queue);
 
     free_Hashtable(server->subscribtions);
     free_Hashtable(server->messages);
@@ -373,7 +377,7 @@ void start_Epoll_Server(Server* server) {
                         free(client);
                         continue;
                     }
-                    push_Queue(&clients_fd, (void*)client);
+                    push_Queue(&clients_fd_queue, (void*)client);
                 }
             } else {
                 int client_fd = events[i].data.fd;
