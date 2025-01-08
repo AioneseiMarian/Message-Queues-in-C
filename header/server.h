@@ -13,7 +13,12 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <json-c/json.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdatomic.h>
 
+
+#define MAX_CLIENTS 100
 #define MAX_EVENTS 64
 #define INITIALPUBQUEUECAP 4
 #define WORKER_THREADS 2

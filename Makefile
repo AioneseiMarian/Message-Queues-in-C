@@ -13,7 +13,7 @@ subscriber: client/subscriber.c
 	cc -Wall -g client/subscriber.c ${SOURCE} -o subscriber ${LDFLAGS}
 .PHONY: server
 server:: server/server.c
-	cc -fsanitize=thread -g server/server.c $(SOURCE) -o serv $(LDFLAGS)
+	cc -g server/server.c $(SOURCE) -o serv $(LDFLAGS)
 .PHONY: db
 db: client/dbwriter.c
 	cc client/dbwriter.c $(SOURCE) -o dbwriter $(LDFLAGS)

@@ -4,6 +4,31 @@
 #include "../header/message_send.h"
 
 
+atomic_bool should_terminate = ATOMIC_VAR_INIT(false);
+
+pthread_t recv_thread[WORKER_THREADS];
+pthread_t thread_send_msg;
+
+Server* global_server;              //for deallocating memory at shutdown
+
+Queue_Node *clients_fd = NULL;      //for closing all connections at shutdown
+
+
+void sigint_handler(int sig) {
+    atomic_store(&should_terminate, true);
+}
+
+void setup_signal_handler() {
+    struct sigaction act;
+    act.sa_handler = sigint_handler;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    if (sigaction(SIGINT, &act, NULL) < 0) {
+        perror("sigaction");
+        exit(1);
+    }
+}
+
 void init_TaskQueue(TaskQueue* queue) {
     queue->front = 0;
     queue->rear = 0;
@@ -26,8 +51,12 @@ void enqueue_TaskQueue(TaskQueue* queue, int client_fd) {
 
 int dequeue_TaskQueue(TaskQueue* queue) {
     pthread_mutex_lock(&queue->mutex);
-    while (queue->front == queue->rear) {
+    while (queue->front == queue->rear && !atomic_load(&should_terminate)) {
         pthread_cond_wait(&queue->cond, &queue->mutex);
+    }
+    if (atomic_load(&should_terminate)) {
+        pthread_mutex_unlock(&queue->mutex);
+        return -1;  // Signal for termination or error
     }
     int client_fd = queue->client_fd_queue[queue->front];
     queue->front = (queue->front + 1) % MAX_EVENTS;
@@ -38,26 +67,32 @@ int dequeue_TaskQueue(TaskQueue* queue) {
 void* thread_send_messages(void* sv)
 {
     Server* server = (struct Server*)sv;
-    while(1)
+    while(!atomic_load(&should_terminate))
     {   
-        sleep(5);
+        sleep(5);                               //if value modified, you should consider verification for the termination signal (should_terminate)
+        if (atomic_load(&should_terminate)) 
+            break;
         send_messages_to_subs(server);
     }
+    printf("Message sender thread shutting down...\n");
+    return NULL;
 }
+
 
 void* worker_Thread(void* arg) {
     struct Server* server = (struct Server*)arg; 
     TaskQueue* queue = &(server->task_queue);   
     
-    while (1) {
+    while (!atomic_load(&should_terminate)) {
         int client_fd = dequeue_TaskQueue(queue);
         
-        if (client_fd == -1) {
+        if (client_fd == -1 || atomic_load(&should_terminate)) {
             break;
         }
         
         handle_Client_Read(server, client_fd);
     }
+    printf("Worker thread shutting down...\n");
     return NULL;
 }
 
@@ -145,14 +180,22 @@ void handle_Client_Read(Server* server, int client_fd) {
         int bytesRead = read(client_fd, buf, sizeof(buf));
         if (bytesRead == 0) {
             printf("Client disconnected from server\n");
-            /* epoll_ctl(server->epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); */
+            Client* client = return_Client_from_Queue(clients_fd, client_fd);
+            if(client != NULL){
+                free(client);
+            }
+            epoll_ctl(server->epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); 
             close(client_fd);
             break;
         } else if (bytesRead < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 break;
             } else {
-                /* epoll_ctl(server->epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); */
+                Client* client = return_Client_from_Queue(clients_fd, client_fd);
+                if(client != NULL){
+                    free(client);
+                }
+                epoll_ctl(server->epoll_fd, EPOLL_CTL_DEL, client_fd, NULL); 
                 close(client_fd);
                 break;
             }
@@ -181,6 +224,7 @@ Server* init_Server(char* _addr, int _port) {
         perror("Error allocating memory");
         exit(EXIT_FAILURE);
     }
+
     server->server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server->server_fd < 0) {
         perror("Error creating socket");
@@ -213,12 +257,6 @@ Server* init_Server(char* _addr, int _port) {
         exit(EXIT_FAILURE);
     }
 
-    pthread_t thread;
-    if(pthread_create(&thread, NULL, thread_send_messages, server) != 0){
-        perror("Error creating send message thread");
-        exit(EXIT_FAILURE);
-    }
-
     init_TaskQueue(&(server->task_queue));
     return server;
 }
@@ -230,6 +268,32 @@ void *debug_print(void* arg)
 
     printf("\n\nDebug print:\n");
     print_Hashtable(server->subscribtions);
+}
+
+void close_Server(Server* server) {
+    write(STDOUT_FILENO, "\nCaught Ctrl+C. Initiating shutdown...\n", 39);
+
+    pthread_mutex_lock(&global_server->task_queue.mutex);
+    pthread_cond_broadcast(&global_server->task_queue.cond);
+    pthread_mutex_unlock(&global_server->task_queue.mutex);
+
+    for(int i = 0; i < WORKER_THREADS; i++){
+        pthread_join(recv_thread[i], NULL);
+    }
+    pthread_join(thread_send_msg, NULL);
+
+    pthread_mutex_destroy(&server->task_queue.mutex);
+    pthread_cond_destroy(&server->task_queue.cond);
+    
+    close(server->epoll_fd);
+    close(server->server_fd);
+
+    free_Queue(&clients_fd);
+
+    free_Hashtable(server->subscribtions);
+    free_Hashtable(server->messages);
+
+    free(server);
 }
 
 void start_Epoll_Server(Server* server) {
@@ -251,22 +315,26 @@ void start_Epoll_Server(Server* server) {
 
     set_Non_Blocking(server->server_fd);
 
-    pthread_t recv_thread[WORKER_THREADS];
     for(int i = 0; i < WORKER_THREADS; i++){
         if (pthread_create(&recv_thread[i], NULL, worker_Thread, server) != 0) {
             perror("Error creating thread");
             exit(EXIT_FAILURE);
         }
     }
+    
+    if(pthread_create(&thread_send_msg, NULL, thread_send_messages, server) != 0){
+        perror("Error creating send message thread");
+        exit(EXIT_FAILURE);
+    }
 
     // pthread_t debug_thread;
     // pthread_create(&debug_thread, NULL, debug_print, server);
 
-    while (1) {
+    while (atomic_load(&should_terminate) == false) {
         int nfds = epoll_wait(server->epoll_fd, events, MAX_EVENTS, -1);
         if (nfds == -1) {
             perror("Error during epoll_wait");
-            exit(EXIT_FAILURE);
+            break;
         }
 
         for (int i = 0; i < nfds; i++) {
@@ -305,41 +373,24 @@ void start_Epoll_Server(Server* server) {
                         free(client);
                         continue;
                     }
+                    push_Queue(&clients_fd, (void*)client);
                 }
             } else {
                 int client_fd = events[i].data.fd;
                 if (events[i].events & (EPOLLIN)) {
-                    enqueue_TaskQueue(&(server->task_queue), client_fd); // Add only if necessary
+                    enqueue_TaskQueue(&(server->task_queue), client_fd); 
                 }
             }
         }
     }
+
+    close_Server(global_server);
 }
 
 
-void listenClient(Server* server, Client* client) {
-    if (listen(server->server_fd, 1) < 0) {
-        perror("Error while listening");
-        exit(EXIT_FAILURE);
-    }
-    printf("Listening client . . . \n");
-    unsigned int client_size = sizeof(client->client_addr);
-    client->client_fd =
-        accept(server->server_fd, (struct sockaddr*)&(client->client_addr),
-               &(client_size));
-    if (client->client_fd < 0) {
-        perror("Can't accept publisher");
-        exit(EXIT_FAILURE);
-    }
-    printf("Publisher connected at IP: %s and port: %i\n",
-           inet_ntoa(client->client_addr.sin_addr),
-           ntohs(client->client_addr.sin_port));
-}
-void close_Server(Server* server) {
-    close(server->server_fd);
-    free_Hashtable(server->messages);
-    free(server);
-}
+
+
+
 Message* retrieve_Message(Server* server, const char* topic,
                           const char* subtopic) {
     unsigned int index = hash_Function(topic);
@@ -377,8 +428,9 @@ Message* retrieve_Message(Server* server, const char* topic,
 int main() {
     setbuf(stdout, NULL);
     Server* server = init_Server(SERVER_IPADDR, SERVER_PORT);
+    global_server = server;
+    setup_signal_handler();
     start_Epoll_Server(server);
 
-    /* close_Server(server); */
     return 0;
 }

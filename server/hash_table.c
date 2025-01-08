@@ -136,23 +136,15 @@ void print_Hashtable(HashTable* table) {
     printf("Mutex unlocked in %s\n", __func__);
 }
 Queue_Node* get_Queue(HashTable* table, const char* topic, const char* subtopic) {
-    printf("Searching for topic %s and subtopic %s\n", topic, subtopic);
     unsigned int index = hash_Function(topic);
     HashTableEntry* entry = table->buckets[index];
 
-    // pthread_mutex_lock(&table_mutex);
-    // printf("Mutex locked in %s\n", __func__);
-    printf("\nGetting queue for topic %s and subtopic %s\n\n", topic, subtopic);
     while (entry) {
         if (strcmp(entry->topic, topic) == 0) {
             Queue_Node* queue = search_Rbt(entry->tree, subtopic);
-            // pthread_mutex_unlock(&table_mutex);
-            // printf("Mutex unlocked in %s\n", __func__);
             return queue;
         }
         entry = entry->next;
     }
-    // pthread_mutex_unlock(&table_mutex); 
-    // printf("Mutex unlocked in %s\n", __func__);
     return NULL;
 }
