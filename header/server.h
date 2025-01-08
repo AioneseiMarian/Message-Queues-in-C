@@ -16,6 +16,7 @@
 
 #define MAX_EVENTS 64
 #define INITIALPUBQUEUECAP 4
+#define WORKER_THREADS 2
 
 
 

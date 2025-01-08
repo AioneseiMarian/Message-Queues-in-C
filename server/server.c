@@ -251,10 +251,12 @@ void start_Epoll_Server(Server* server) {
 
     set_Non_Blocking(server->server_fd);
 
-    pthread_t recv_thread;
-    if (pthread_create(&recv_thread, NULL, worker_Thread, server) != 0) {
-        perror("Error creating thread");
-        exit(EXIT_FAILURE);
+    pthread_t recv_thread[WORKER_THREADS];
+    for(int i = 0; i < WORKER_THREADS; i++){
+        if (pthread_create(&recv_thread[i], NULL, worker_Thread, server) != 0) {
+            perror("Error creating thread");
+            exit(EXIT_FAILURE);
+        }
     }
 
     // pthread_t debug_thread;

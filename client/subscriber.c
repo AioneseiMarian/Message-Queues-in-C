@@ -124,7 +124,12 @@ void subscribe_to_topic(json_object* parsed_json)
 	json_object_put(parsed_json);
 }
 
-int main(void) {
+int main(int argc, char const *argv[]) {
+    if(argc != 2){
+        printf("Usage: %s file with subs configuration\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
     if (init_client() == -1) {
         perror("");
         exit(-1);
@@ -136,7 +141,7 @@ int main(void) {
 
     // subscribe_to_topic(topic, subtopic);
     char filename[100]; 
-    strcpy(filename, MSGFILENAME);
+    strcpy(filename, argv[1]);
     fetch_from_db(client, filename);
     printf("Subscribtions sent\n");
 
