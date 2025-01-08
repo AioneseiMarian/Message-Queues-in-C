@@ -13,14 +13,19 @@ void set_all_messages_as_old(Queue_Node* msg_queue){  //From a specific topic an
     }
 }
 
-void set_all_subs_as_old(Queue_Node* sub_queue){
-    Subscribtion* sub;
-    while(sub_queue != NULL)
-    {
-        sub = sub_queue->data;
-        sub->new = 0;
-
-        sub_queue = sub_queue->next_node;
+void set_all_subs_as_old(HashTable* table){
+    for (int i = 0; i < HASH_TABLE_SIZE; ++i) {
+        HashTableEntry* entry = table->buckets[i];
+        while (entry) {
+            Queue_Node* sub_queue = entry->tree->root->queue;
+            while(sub_queue != NULL)
+            {
+                Subscribtion* sub = sub_queue->data;
+                sub->new = 0;
+                sub_queue = sub_queue->next_node;
+            }
+            entry = entry->next;
+       }
     }
 }
 
@@ -75,8 +80,6 @@ void aux_send_messages_from_queues(Server* server, Queue_Node* msg_queue){      
             }
 
             sub_queue = sub_queue->next_node;
-        //TODO sendd message
-
         }
 
 
@@ -96,7 +99,6 @@ void send_messages_to_subs(Server* server){
                 printf("\tSending topic: %s\n", entry->topic);
 
                 Queue_Node* aux_queue = NULL;  // Initialize to NULL as per push_Queue's expectation
-                
                 push_Queue(&aux_queue, (void*)entry->tree->root);
 
                 while (aux_queue != NULL) {  // While queue is not empty
@@ -116,6 +118,7 @@ void send_messages_to_subs(Server* server){
             }
         }
     }
+    
 
     pthread_mutex_unlock(&table_mutex);
 }
