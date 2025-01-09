@@ -139,7 +139,7 @@ void close_Publisher_Client(Publisher *publisher) {
     free(publisher);
 }
 int main(void) {
-    Publisher *publisher_client = init_Server(SERVER_IPADDR, SERVER_PORT);
+    Publisher *publisher_client = init_Server("127.0.0.1", SERVER_PORT);
     fetch_All_From_DB(publisher_client, MSGFILENAME);
 	send_All_Messages(publisher_client);
     close_Publisher_Client(publisher_client);
