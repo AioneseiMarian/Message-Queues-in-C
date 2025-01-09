@@ -3,7 +3,7 @@
       "type":0,
       "topic":"Programming",
       "subtopic":"programming language",
-      "size":3,
+      "size":22,
       "interest":"C programming language"
     },
     {
@@ -17,21 +17,21 @@
       "type":0,
       "topic":"File operations",
       "subtopic":"file creation",
-      "length":4,
+      "size":4,
       "interest":"fis2"
     },
     {
       "type":0,
       "topic":"Shop offers",
       "subtopic":"soda promo",
-      "length":4,
+      "size":4,
       "interest":"soda"
     },
     {
       "type":0,
       "topic":"Shop offers",
       "subtopic":"meat promo",
-      "length":5,
+      "size":5,
       "interest":"promo"
     }
 ]
