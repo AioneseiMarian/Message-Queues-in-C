@@ -12,7 +12,7 @@
 
 #include "../header/message.h"
 
-#define INIT_DATABASE "publisher_database/init_database.json"
+#define INIT_DATABASE "subscriber_database/init_database.json"
 
 typedef struct {
     struct sockaddr_in server_addr;

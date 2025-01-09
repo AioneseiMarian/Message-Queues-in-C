@@ -191,7 +191,7 @@ char* serialize_Hashtable(HashTable* hashtable){
 
     const char* json_string = json_object_to_json_string(json_array);
     printf("Serialized message: %s\n", json_string);
-    const char *string = strdup(json_string);
+    char *string = strdup(json_string);
     json_object_put(json_array);
 
     return string;
