@@ -5,6 +5,7 @@
 publisher
 serv
 dbwriter
+subscriber
 
 # test files
 test*

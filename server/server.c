@@ -1,3 +1,4 @@
+#include <netinet/in.h>
 #define _GNU_SOURCE
 
 #include "../header/server.h"

@@ -1,0 +1,58 @@
+[
+  {
+    "type": 1,
+    "topic": "Science",
+    "subtopic": "astronomy",
+    "length": 24,
+    "data": "The Milky Way is a galaxy."
+  },
+  {
+    "type": 1,
+    "topic": "Science",
+    "subtopic": "biology",
+    "length": 29,
+    "data": "Photosynthesis occurs in plants."
+  },
+  {
+    "type": 1,
+    "topic": "Health",
+    "subtopic": "nutrition",
+    "length": 17,
+    "data": "Eat more vegetables."
+  },
+  {
+    "type": 1,
+    "topic": "Health",
+    "subtopic": "exercise",
+    "length": 18,
+    "data": "Jogging is good cardio."
+  },
+  {
+    "type": 1,
+    "topic": "Technology",
+    "subtopic": "AI",
+    "length": 31,
+    "data": "Artificial intelligence is evolving fast."
+  },
+  {
+    "type": 1,
+    "topic": "Technology",
+    "subtopic": "cybersecurity",
+    "length": 28,
+    "data": "Always use strong passwords."
+  },
+  {
+    "type": 1,
+    "topic": "Travel",
+    "subtopic": "destinations",
+    "length": 24,
+    "data": "Paris is a popular tourist spot."
+  },
+  {
+    "type": 1,
+    "topic": "Travel",
+    "subtopic": "advice",
+    "length": 21,
+    "data": "Pack light for easy travel."
+  }
+]
