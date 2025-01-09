@@ -1,3 +1,4 @@
+#include <netinet/in.h>
 #define _GNU_SOURCE
 
 #include "../header/server.h"
@@ -222,7 +223,7 @@ void set_Non_Blocking(int fd) {
         exit(EXIT_FAILURE);
     }
 }
-Server* init_Server(char* _addr, int _port) {
+Server* init_Server(in_addr_t _addr, int _port) {
     Server* server = (Server*)malloc(sizeof(Server));
     if (server == NULL) {
         perror("Error allocating memory");
@@ -245,7 +246,7 @@ Server* init_Server(char* _addr, int _port) {
 
     server->server_addr.sin_family = AF_INET;
     server->server_addr.sin_port = htons(_port);
-    server->server_addr.sin_addr.s_addr = inet_addr(_addr);
+    server->server_addr.sin_addr.s_addr = _addr;
 
     server->messages = create_Hashtable();
     server->subscribtions = create_Hashtable();
@@ -431,7 +432,7 @@ Message* retrieve_Message(Server* server, const char* topic,
 }
 int main() {
     setbuf(stdout, NULL);
-    Server* server = init_Server(SERVER_IPADDR, SERVER_PORT);
+    Server* server = init_Server(INADDR_ANY, SERVER_PORT);
     global_server = server;
     setup_signal_handler();
     start_Epoll_Server(server);

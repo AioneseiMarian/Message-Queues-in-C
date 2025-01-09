@@ -138,9 +138,13 @@ void close_Publisher_Client(Publisher *publisher) {
 	free_Queue(&(publisher->messages_queue));
     free(publisher);
 }
-int main(void) {
+int main(int argc, char** argv) {
     Publisher *publisher_client = init_Server(SERVER_IPADDR, SERVER_PORT);
-    fetch_All_From_DB(publisher_client, MSGFILENAME);
+	if(argc != 2){
+		fprintf(stderr, "Invalid param\n");
+		exit(EXIT_FAILURE);
+	}
+	fetch_All_From_DB(publisher_client, argv[1]);
 	send_All_Messages(publisher_client);
     close_Publisher_Client(publisher_client);
 
