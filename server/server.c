@@ -16,6 +16,68 @@ pthread_mutex_t client_queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 Queue_Node *clients_fd_queue = NULL;      //for closing all connections at shutdown
 
+void store_Message(Server* server, Message* msg);
+
+void load_messages_from_database(Server* server){
+    printf("\nLoading messages from server_database/messages.json\n");
+    int fd = open("server_database/messages.json", O_RDONLY);
+    if(fd < 0){
+        perror("Error opening messages database");
+        return;
+    }
+    size_t file_length = lseek(fd, 0, SEEK_END);
+    lseek(fd, 0, SEEK_SET);
+    char* buffer = (char*)malloc((file_length + 1) * sizeof(char));
+    if(buffer == NULL){
+        perror("Error allocating memory for messages buffer");
+        return;
+    }
+    if(read(fd, buffer, file_length) < 0){
+        perror("Error reading from messages database");
+        return;
+    }
+    close(fd);
+    buffer[file_length] = '\0';
+    struct json_object* parsed_json = json_tokener_parse(buffer);
+    if(!parsed_json){
+        perror("Failed to parse JSON string");
+        return;
+    }
+    size_t array_length = json_object_array_length(parsed_json);
+    for(int i = 0; i < array_length; ++i){
+        struct json_object* message = json_object_array_get_idx(parsed_json, i);
+        Message* msg = create_Message_From_Json(message);
+        if(msg){
+            store_Message(server, msg);
+        }else{
+            perror("Empty message. Can't store it");
+        }
+    }
+    free(buffer);
+    json_object_put(parsed_json);
+}
+
+void save_messages_in_database(Server* server){
+    printf("\nMessages will be saved in server_database/messages.json\n");
+    int fd = open("server_database/messages.json", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if(fd < 0){
+        perror("Error opening messages database");
+        return;
+    }
+    char* json_string = serialize_Hashtable(server->messages);
+    if(json_string == NULL){
+        perror("Error serializing messages");
+        return;
+    }
+    size_t json_length = strlen(json_string);
+    if(write(fd, json_string, json_length) < 0){
+        perror("Error writing to messages database");
+        return;
+    }
+    close(fd);
+    free(json_string);
+}
+
 
 void sigint_handler(int sig) {
     atomic_store(&should_terminate, true);
@@ -262,6 +324,7 @@ Server* init_Server(in_addr_t _addr, int _port) {
         exit(EXIT_FAILURE);
     }
 
+    load_messages_from_database(server);
     init_TaskQueue(&(server->task_queue));
     return server;
 }
@@ -286,6 +349,8 @@ void close_Server(Server* server) {
         pthread_join(recv_thread[i], NULL);
     }
     pthread_join(thread_send_msg, NULL);
+
+    save_messages_in_database(server);
 
     pthread_mutex_destroy(&server->task_queue.mutex);
     pthread_cond_destroy(&server->task_queue.cond);

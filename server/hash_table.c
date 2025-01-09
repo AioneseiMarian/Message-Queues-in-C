@@ -148,3 +148,51 @@ Queue_Node* get_Queue(HashTable* table, const char* topic, const char* subtopic)
     }
     return NULL;
 }
+
+char* serialize_Hashtable(HashTable* hashtable){
+    json_object* json_array = json_object_new_array();
+
+    for(int i = 0; i < HASH_TABLE_SIZE; i++){
+        HashTableEntry* entry = hashtable->buckets[i];
+        while(entry){
+                Queue_Node* aux_queue = NULL;  // Initialize to NULL as per push_Queue's expectation
+                push_Queue(&aux_queue, (void*)entry->tree->root);
+
+                while (aux_queue != NULL) {  // While queue is not empty
+                    RBTNode* tree_node = (RBTNode*)pop_Queue(&aux_queue);
+                    if (tree_node && tree_node->queue) {
+                        //iterate the queue
+                        Queue_Node* msg_queue = tree_node->queue;
+                        while(msg_queue != NULL)
+                        {
+                            Message* msg = msg_queue->data;
+                            json_object* json_message = json_object_new_object();
+                            json_object_object_add(json_message, "type", json_object_new_int(msg->header.msg_type));
+                            json_object_object_add(json_message, "topic", json_object_new_string(msg->header.topic));
+                            json_object_object_add(json_message, "subtopic", json_object_new_string(msg->header.subtopic));
+                            json_object_object_add(json_message, "length", json_object_new_int(msg->header.len));
+                            json_object_object_add(json_message, "data", json_object_new_string(msg->data));
+                            json_object_array_add(json_array, json_message);
+                            msg_queue = msg_queue->next_node;
+
+                        }
+                    }
+
+                    if(tree_node->left != entry->tree->NIL)
+                        push_Queue(&aux_queue, tree_node->left);
+                    
+                    if(tree_node->right != entry->tree->NIL)
+                        push_Queue(&aux_queue, tree_node->right);
+                }
+                free_Queue(&aux_queue);
+                entry = entry->next;
+        }
+    }
+
+    const char* json_string = json_object_to_json_string(json_array);
+    printf("Serialized message: %s\n", json_string);
+    const char *string = strdup(json_string);
+    json_object_put(json_array);
+
+    return string;
+}

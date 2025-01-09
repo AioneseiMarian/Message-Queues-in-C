@@ -99,7 +99,7 @@ int init_client() {
     client->server_addr.sin_addr.s_addr = inet_addr(server_ip_addr);
 
 
-    if((client->output_fd = open(output_file, O_APPEND | O_CREAT | O_WRONLY, 0644)) == -1){
+    if((client->output_fd = open(output_file, O_CREAT | O_WRONLY, 0644)) == -1){
         perror("Error opening output file");
         exit(EXIT_FAILURE);
     }
